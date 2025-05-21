@@ -1,0 +1,2 @@
+SESSION_KEY = ""
+API_KEY = ""
