@@ -80,12 +80,14 @@ def get_pano_ids(locations):
         "radius": RADIUS
     }
     try:
+        print(payload)
         r = requests.post(API_URL, params=params, headers={'Content-Type': 'application/json'}, data=json.dumps(payload))
         r.raise_for_status()
         data = r.json()
         return data.get("panoIds")
     except requests.exceptions.RequestException as e:
-        print(f"Error during API request: {e}")
+        print(e.response)
+        print(f"Error during API request: {e}", e.response.json())
         return None
 
 def get_pano_metadata(pano_id):
@@ -103,7 +105,7 @@ def get_pano_metadata(pano_id):
     }
     try:
         r = requests.get(METADATA_API_URL, params=params)
-        r.raise_for_status()
+        r.raise_for_status() 
         data = r.json()
         return data
     except requests.exceptions.RequestException as e:
@@ -128,10 +130,17 @@ if __name__ == "__main__":
     if start_lat is None or start_lon is None:
       print(f"Could not retrieve lat/lon for starting PanoID {start_pano_id}.")
       sys.exit(1)
-
+    linked_locations = []
+    # Add linked panos to the list of locations
+    linked_panos = start_metadata.get("links", [])
+    locations = []
+    for link in linked_panos:
+        if "panoId" in link and "heading" in link:
+          linked_pano_id = link["panoId"]
+          linked_pano_heading = link["heading"]
+          linked_locations.append({"pano_id": linked_pano_id, "heading": linked_pano_heading})
     # Define the angles for the forward locations
     angles = [0, -45, 45, 90, -90]
-    locations = []
     for angle in angles:
         new_heading = start_heading + angle
         new_lat, new_lon = inverse_haversine(start_lat, start_lon, new_heading, OFFSET_DISTANCE)
@@ -149,18 +158,29 @@ if __name__ == "__main__":
     # Print the results
     if unique_pano_ids:
         for pano_id in unique_pano_ids:
-            metadata = get_pano_metadata(pano_id)
             if pano_id == start_pano_id:
-              continue
+                continue
+            metadata = get_pano_metadata(pano_id)
             if metadata:
                 pano_lat = metadata.get("lat")
                 pano_lon = metadata.get("lng")
                 if pano_lat is not None and pano_lon is not None:
+                  # Find the heading for this pano
+                  if any(d.get("pano_id") == pano_id for d in locations):
+                    # Use the provided heading if it's a linked pano
+                    provided_heading = next((d.get("heading") for d in locations if d.get("pano_id") == pano_id), None)
+                    if provided_heading is not None:
+                      heading = provided_heading
+                    else:
+                      # Calculate heading from start if it's not a linked pano
+                      heading = calculate_heading(start_lat, start_lon, pano_lat, pano_lon)
+                  else:
+                    # Calculate heading from start if it's not a linked pano
+                    heading = calculate_heading(start_lat, start_lon, pano_lat, pano_lon)
                   heading = calculate_heading(start_lat, start_lon, pano_lat, pano_lon)
                   print(f"PanoID: {pano_id}, Heading: {heading:.2f} degrees")
-                else:
-                  print(f"Could not retrieve lat/lon for PanoID {pano_id}.")
             else:
                 print(f"No metadata found for PanoID {pano_id}.")
     else:
         print("No PanoIDs found or error during request.")
+#    print(linked_)

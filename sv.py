@@ -100,7 +100,7 @@ def build_lines_recursive(
     r.raise_for_status()
     data = r.json()
   except requests.exceptions.RequestException as e:
-    print(f"Error fetching data for pano {pano_id_to_process}: {e}")
+    print(f"Error fetching data for pano {pano_id_to_process}: {e}", e.response.json())
   except ValueError as e:  # Includes JSONDecodeError
     print(f"Error decoding JSON for pano {pano_id_to_process}: {e}")
   if data is None:  # API call failed or JSON decoding failed
