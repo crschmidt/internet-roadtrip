@@ -80,7 +80,6 @@ def get_pano_ids(locations):
         "radius": RADIUS
     }
     try:
-        print(payload)
         r = requests.post(API_URL, params=params, headers={'Content-Type': 'application/json'}, data=json.dumps(payload))
         r.raise_for_status()
         data = r.json()
@@ -112,14 +111,20 @@ def get_pano_metadata(pano_id):
         print(f"Error fetching metadata for pano {pano_id}: {e}")
         return None
 
-if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python irtpanos.py <pano_id> <heading>")
-        sys.exit(1)
+def get_second(pano_id, start_pano):
+  data = get_pano_metadata(pano_id)
+  options = []
+  if data.get("links"):
+    for link in data.get("links"):
+      
+      if link.get("panoId") == start_pano:
+        continue
+      options.append(link.get("panoId"))
+  if len(options) > 1:
+    return []
+  return options[0]
 
-    start_pano_id = sys.argv[1]
-    start_heading = float(sys.argv[2])
-
+def repro_irt(start_pano_id, start_heading):
     # Fetch metadata for the starting pano to get its lat/lon
     start_metadata = get_pano_metadata(start_pano_id)
     if not start_metadata:
@@ -130,15 +135,17 @@ if __name__ == "__main__":
     if start_lat is None or start_lon is None:
       print(f"Could not retrieve lat/lon for starting PanoID {start_pano_id}.")
       sys.exit(1)
-    linked_locations = []
+    linked_locations = {}
     # Add linked panos to the list of locations
     linked_panos = start_metadata.get("links", [])
     locations = []
+    pano_headings = {}
     for link in linked_panos:
         if "panoId" in link and "heading" in link:
           linked_pano_id = link["panoId"]
           linked_pano_heading = link["heading"]
-          linked_locations.append({"pano_id": linked_pano_id, "heading": linked_pano_heading})
+          linked_locations[linked_pano_id] = linked_pano_heading
+          pano_headings[linked_pano_id] = linked_pano_heading
     # Define the angles for the forward locations
     angles = [0, -45, 45, 90, -90]
     for angle in angles:
@@ -148,10 +155,10 @@ if __name__ == "__main__":
 
     # Make the PanoID API request
     pano_ids_per_angle = get_pano_ids(locations)
-
+    #print(pano_ids_per_angle)
     # Deduplicate PanoIDs
     if pano_ids_per_angle:
-      unique_pano_ids = set(pano_ids_per_angle)
+      unique_pano_ids = set(pano_ids_per_angle+list(linked_locations.keys()))
     else:
       unique_pano_ids = set()
 
@@ -160,27 +167,35 @@ if __name__ == "__main__":
         for pano_id in unique_pano_ids:
             if pano_id == start_pano_id:
                 continue
+            if pano_id in linked_locations: continue
             metadata = get_pano_metadata(pano_id)
             if metadata:
                 pano_lat = metadata.get("lat")
                 pano_lon = metadata.get("lng")
                 if pano_lat is not None and pano_lon is not None:
-                  # Find the heading for this pano
-                  if any(d.get("pano_id") == pano_id for d in locations):
-                    # Use the provided heading if it's a linked pano
-                    provided_heading = next((d.get("heading") for d in locations if d.get("pano_id") == pano_id), None)
-                    if provided_heading is not None:
-                      heading = provided_heading
-                    else:
-                      # Calculate heading from start if it's not a linked pano
-                      heading = calculate_heading(start_lat, start_lon, pano_lat, pano_lon)
-                  else:
-                    # Calculate heading from start if it's not a linked pano
-                    heading = calculate_heading(start_lat, start_lon, pano_lat, pano_lon)
                   heading = calculate_heading(start_lat, start_lon, pano_lat, pano_lon)
-                  print(f"PanoID: {pano_id}, Heading: {heading:.2f} degrees")
-            else:
-                print(f"No metadata found for PanoID {pano_id}.")
+                  pano_headings[pano_id] = heading
     else:
-        print("No PanoIDs found or error during request.")
-#    print(linked_)
+      print("No PanoIDs found or error during request.")
+    allowed_options = []
+    for pano, heading in pano_headings.items():
+      if heading < 0:
+        heading += 360
+      if abs((start_heading - heading)) < 100 and abs((start_heading - heading)) > -100:
+        print("Pano %s with heading %f is the right direction." % (pano, heading))
+        allowed_options.append(pano)
+      else:
+        print("Skipping pano %s with heading %f" % (pano, heading))
+    if len(allowed_options) == 1:
+      print("There is only one option.")
+      skip = get_second(allowed_options[0], start_pano_id)
+      print(skip)
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python irtpanos.py <pano_id> <heading>")
+        sys.exit(1)
+
+    start_pano_id = sys.argv[1]
+    start_heading = float(sys.argv[2])
+    repro_irt(start_pano_id, start_heading)
