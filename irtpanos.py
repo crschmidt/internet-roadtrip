@@ -187,9 +187,9 @@ def repro_irt(start_pano_id, start_heading):
       else:
         print("Skipping pano %s with heading %f" % (pano, heading))
     if len(allowed_options) == 1:
-      print("There is only one option.")
+      print("There is only one option")
       skip = get_second(allowed_options[0], start_pano_id)
-      print(skip)
+      print("Would (maybe?) skip to: %s" % skip)
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
