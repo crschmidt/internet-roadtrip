@@ -33,7 +33,7 @@ METADATA_API_URL = "https://tile.googleapis.com/v1/streetview/metadata"
 SESSION_KEY = keys.SESSION_KEY
 API_KEY = keys.API_KEY
 RADIUS = 20 # Radius for PanoID search in meters
-OFFSET_DISTANCE = 13 # Distance forward in meters
+OFFSET_DISTANCE = 15 # Distance forward in meters
 
 def inverse_haversine(lat, lon, heading, distance):
     """
@@ -122,22 +122,27 @@ def get_second(pano_id, start_pano):
       options.append(link.get("panoId"))
   if len(options) > 1:
     return []
+  if len(options) == 0:
+    return []
   return options[0]
 
-def repro_irt(start_pano_id, start_heading):
+def repro_irt(start_pano_id, start_heading, start_lat=None, start_lon=None):
+    linked_panos = []
     # Fetch metadata for the starting pano to get its lat/lon
-    start_metadata = get_pano_metadata(start_pano_id)
-    if not start_metadata:
+    if start_pano_id:
+      start_metadata = get_pano_metadata(start_pano_id)
+      if not start_metadata:
         print(f"Could not retrieve metadata for starting PanoID {start_pano_id}.")
         sys.exit(1)
-    start_lat = start_metadata.get("lat")
-    start_lon = start_metadata.get("lng")
+      start_lat = start_metadata.get("lat")
+      start_lon = start_metadata.get("lng")
+      linked_panos = start_metadata.get("links", [])
+    
     if start_lat is None or start_lon is None:
       print(f"Could not retrieve lat/lon for starting PanoID {start_pano_id}.")
       sys.exit(1)
     linked_locations = {}
     # Add linked panos to the list of locations
-    linked_panos = start_metadata.get("links", [])
     locations = []
     pano_headings = {}
     for link in linked_panos:
@@ -155,6 +160,7 @@ def repro_irt(start_pano_id, start_heading):
 
     # Make the PanoID API request
     pano_ids_per_angle = get_pano_ids(locations)
+    print(pano_ids_per_angle)
     #print(pano_ids_per_angle)
     # Deduplicate PanoIDs
     if pano_ids_per_angle:
@@ -168,6 +174,7 @@ def repro_irt(start_pano_id, start_heading):
             if pano_id == start_pano_id:
                 continue
             if pano_id in linked_locations: continue
+            print("Fetching metadata for pano %s" % pano_id)
             metadata = get_pano_metadata(pano_id)
             if metadata:
                 pano_lat = metadata.get("lat")
@@ -197,5 +204,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     start_pano_id = sys.argv[1]
+#    start_pano_id= None
     start_heading = float(sys.argv[2])
     repro_irt(start_pano_id, start_heading)
