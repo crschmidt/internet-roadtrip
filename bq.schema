@@ -1,0 +1,165 @@
+[
+  {
+    "name": "id",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "raw_json",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "stop",
+    "type": "INTEGER",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "location",
+    "type": "RECORD",
+    "mode": "NULLABLE",
+    "fields": [
+      {
+        "name": "road",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "state",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "county",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "country",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "neighborhood",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      }
+    ]
+  },
+  {
+    "name": "voteCounts",
+    "type": "RECORD",
+    "mode": "REPEATED",
+    "fields": [
+      {
+        "name": "key",
+        "type": "STRING",
+        "mode": "REQUIRED"
+      },
+      {
+        "name": "value",
+        "type": "INTEGER",
+        "mode": "REQUIRED"
+      }
+    ]
+  },
+  {
+    "name": "pano",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "heading",
+    "type": "FLOAT",
+    "mode": "NULLABLE"
+  },
+    {
+    "name": "options",
+    "type": "RECORD",
+    "mode": "REPEATED",
+    "fields": [
+        {
+            "name": "pano",
+            "type": "STRING",
+            "mode": "NULLABLE"
+        },
+        {
+            "name": "description",
+            "type": "STRING",
+            "mode": "NULLABLE"
+        },
+        {
+            "name": "heading",
+            "type": "FLOAT",
+            "mode": "NULLABLE"
+        },
+        {
+            "name": "lat",
+            "type": "FLOAT",
+            "mode": "NULLABLE"
+        },
+        {
+            "name": "lng",
+            "type": "FLOAT",
+            "mode": "NULLABLE"
+        }
+    ]
+  },
+  {
+    "name": "endTime",
+    "type": "INTEGER",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "lat",
+    "type": "FLOAT",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "lng",
+    "type": "FLOAT",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "totalUsers",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "distance",
+    "type": "FLOAT",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "chosen",
+    "type": "INTEGER",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "station",
+    "type": "RECORD",
+    "mode": "NULLABLE",
+    "fields": [
+      {
+        "name": "name",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "url",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+        {
+        "name": "distance",
+        "type": "INTEGER",
+        "mode": "NULLABLE"
+      }
+    ]
+  },
+    {
+    "name": "nowPlaying",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  }
+]
