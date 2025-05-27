@@ -15,6 +15,7 @@ def calculate_heading(lat1, lon1, lat2, lon2):
     Returns:
         Heading in degrees (0=North, 90=East, 180=South, 270=West).
     """
+#    print("calculate_heading: %f, %f, %f, %f" % (lat1, lon1, lat2, lon2))
     lat1_rad = math.radians(lat1)
     lon1_rad = math.radians(lon1)
     lat2_rad = math.radians(lat2)
@@ -83,7 +84,8 @@ def get_pano_ids(locations):
         r = requests.post(API_URL, params=params, headers={'Content-Type': 'application/json'}, data=json.dumps(payload))
         r.raise_for_status()
         data = r.json()
-        return data.get("panoIds")
+        
+        return list(set([pano_id for pano_id in data.get("panoIds") if pano_id != '']))
     except requests.exceptions.RequestException as e:
         print(e.response)
         print(f"Error during API request: {e}", e.response.json())
@@ -111,6 +113,25 @@ def get_pano_metadata(pano_id):
         print(f"Error fetching metadata for pano {pano_id}: {e}")
         return None
 
+def safe_heading(start_heading, heading):
+  """
+  Determine if the heading is in the range of -100 to 100 degrees from the start heading.
+  Args:
+      start_heading: The starting heading.
+      heading: The heading to check.
+  Returns:
+      True if the heading is in the range of -100 to 100 degrees from the start heading, False otherwise.
+  
+  Test cases:
+  1. start_heading = 10, heading = -10: True
+  2. start_heading = 350, heading = 10: True
+  3. start_heading = 350, heading = 220: False
+  """
+  heading_diff = (heading - start_heading + 360) % 360
+  return heading_diff <= 100 or heading_diff >= 260
+
+
+
 def get_second(pano_id, start_pano):
   data = get_pano_metadata(pano_id)
   options = []
@@ -134,8 +155,13 @@ def repro_irt(start_pano_id, start_heading, start_lat=None, start_lon=None):
       if not start_metadata:
         print(f"Could not retrieve metadata for starting PanoID {start_pano_id}.")
         sys.exit(1)
-      start_lat = start_metadata.get("lat")
-      start_lon = start_metadata.get("lng")
+      print(start_metadata)
+      if not start_lat and not start_lon:
+        start_lat = start_metadata.get("originalLat")
+        start_lon = start_metadata.get("originalLng")
+        if not start_lat or not start_lon:
+          start_lat = start_metadata.get("lat")
+          start_lon = start_metadata.get("lng")
       linked_panos = start_metadata.get("links", [])
     
     if start_lat is None or start_lon is None:
@@ -157,7 +183,6 @@ def repro_irt(start_pano_id, start_heading, start_lat=None, start_lon=None):
         new_heading = start_heading + angle
         new_lat, new_lon = inverse_haversine(start_lat, start_lon, new_heading, OFFSET_DISTANCE)
         locations.append({"lat": new_lat, "lng": new_lon})
-
     # Make the PanoID API request
     pano_ids_per_angle = get_pano_ids(locations)
     print(pano_ids_per_angle)
@@ -176,9 +201,10 @@ def repro_irt(start_pano_id, start_heading, start_lat=None, start_lon=None):
             if pano_id in linked_locations: continue
             print("Fetching metadata for pano %s" % pano_id)
             metadata = get_pano_metadata(pano_id)
+            #print(metadata)
             if metadata:
-                pano_lat = metadata.get("lat")
-                pano_lon = metadata.get("lng")
+                pano_lat = metadata.get("originalLat") or metadata.get("lat")
+                pano_lon = metadata.get("originalLng") or metadata.get("lng")
                 if pano_lat is not None and pano_lon is not None:
                   heading = calculate_heading(start_lat, start_lon, pano_lat, pano_lon)
                   pano_headings[pano_id] = heading
@@ -186,24 +212,27 @@ def repro_irt(start_pano_id, start_heading, start_lat=None, start_lon=None):
       print("No PanoIDs found or error during request.")
     allowed_options = []
     for pano, heading in pano_headings.items():
-      if heading < 0:
-        heading += 360
-      if abs((start_heading - heading)) < 100 and abs((start_heading - heading)) > -100:
+      if safe_heading(start_heading, heading):
         print("Pano %s with heading %f is the right direction." % (pano, heading))
-        allowed_options.append(pano)
+        allowed_options.append((pano, heading))
       else:
         print("Skipping pano %s with heading %f" % (pano, heading))
     if len(allowed_options) == 1:
       print("There is only one option")
-      skip = get_second(allowed_options[0], start_pano_id)
+      skip = get_second(allowed_options[0][0], start_pano_id)
       print("Would (maybe?) skip to: %s" % skip)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) < 3:
         print("Usage: python irtpanos.py <pano_id> <heading>")
         sys.exit(1)
 
     start_pano_id = sys.argv[1]
 #    start_pano_id= None
     start_heading = float(sys.argv[2])
-    repro_irt(start_pano_id, start_heading)
+    start_lat = None
+    start_lon = None
+    if len(sys.argv) > 3:
+      start_lat, start_lon = float(sys.argv[3]), float(sys.argv[4])
+    repro_irt(start_pano_id, start_heading, start_lat, start_lon)
+    print(calculate_heading(46.149727169237636, -67.22092450562987, 46.149760269473916, -67.220834990240547))
