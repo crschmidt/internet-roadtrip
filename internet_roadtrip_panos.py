@@ -10,18 +10,28 @@ API_KEY = keys.API_KEY
 # curl -X POST https://tile.googleapis.com/v1/createSession?mapType=streetview&key=API_KEY
 SESSION_KEY = keys.SESSION_KEY
 
-
-def main(pano, heading):
-    predicted = predict_options(pano_id, heading)
+def main(pano, heading, search_dist=13):
+    #print("hi")
+    predicted = predict_options(pano_id, heading, search_dist=search_dist, lat=None, lng=None)
     print(f"Predicted options for {pano_id} heading {heading}:")
     for option in predicted:
         print(f"  {json.dumps(option)}")
 
 
-def predict_options(cur_pano_id: str, cur_heading: float):
+def predict_options(cur_pano_id: str, cur_heading: float, search_dist: float = 13, lat=None, lng=None):
+    cur_lat = lat
+    cur_lng = lng
     metadata = get_metadata(cur_pano_id)
-    cur_lat = metadata.get("originalLat") or metadata["lat"]
-    cur_lng = metadata.get("originalLng") or metadata["lng"]
+    if not cur_lat:
+      #if 
+      #cur_lat = metadata.get("lat", 0)# or metadata["originalLat"]
+      #cur_lng = metadata.get("lng", 0)# or metadata["originalLng"]
+      if cur_pano_id.startswith("CAoSF"):
+        cur_lat = metadata.get("lat",0)# or metadata.get("lat",0)
+        cur_lng = metadata.get("lng",0)# or metadata.get("lng",0)
+      else:
+        cur_lat = metadata.get("originalLat") or metadata.get("lat",0)
+        cur_lng = metadata.get("originalLng") or metadata.get("lng",0)
 
     predicted = []
     seen_pano_ids = set()
@@ -49,19 +59,22 @@ def predict_options(cur_pano_id: str, cur_heading: float):
 
     heading_offsets = (0, -45, 45, 90, -90)
 
+#    print (cur_lat, cur_lng)
     locations = []
     for heading_offset in heading_offsets:
         locations.append(
             haversine.inverse_haversine(
                 (cur_lat, cur_lng),
-                13,
+                search_dist,
                 math.radians(normalize_heading(cur_heading) + heading_offset),
                 unit=haversine.Unit.METERS,
             )
         )
 
-    extra_pano_ids = get_pano_ids(locations, 20)
+    #print(locations)
 
+    extra_pano_ids = get_pano_ids(locations, 50)
+    #print(extra_pano_ids)
     for option_pano_id in extra_pano_ids:
         if not option_pano_id or option_pano_id in seen_pano_ids:
             continue
@@ -69,8 +82,15 @@ def predict_options(cur_pano_id: str, cur_heading: float):
 
         option_metadata = get_metadata(option_pano_id)
 
-        option_lat = option_metadata.get("originalLat") or option_metadata["lat"]
-        option_lng = option_metadata.get("originalLng") or option_metadata["lng"]
+        if option_pano_id.startswith("CAoSF"):
+          option_lat = option_metadata.get("lat",0)# or option_metadata.get("lat",0)
+          option_lng = option_metadata.get("lng",0)# or option_metadata.get("lng",0)
+        else:
+          option_lat = option_metadata.get("originalLat") or option_metadata.get("lat",0)
+          option_lng = option_metadata.get("originalLng") or option_metadata.get("lng",0)
+
+        if not option_lat:
+          print("Invalid pano location? Stop: %s Pano: %s \n %s" % (cur_pano_id, option_pano_id, option_metadata))
 
         option_heading = calculate_heading(
             (cur_lat, cur_lng),
@@ -78,6 +98,7 @@ def predict_options(cur_pano_id: str, cur_heading: float):
         )
         heading_offset = calculate_heading_offset(cur_heading, option_heading)
         if abs(heading_offset) > 100:
+            #print("Pano %s in wrong direction, %s" % (option_pano_id, heading_offset))
             continue
 
         # filter if the heading is too close to another heading
@@ -86,6 +107,7 @@ def predict_options(cur_pano_id: str, cur_heading: float):
             calculate_heading_offset(seen_heading, option_heading)
             if abs(calculate_heading_offset(seen_heading, option_heading)) < 15:
                 too_close_to_other_heading = True
+                #print("Pano %s heading %s too close to %s, %s, %s" % (option_pano_id, option_heading, seen_heading, option_lat, option_lng))
                 break
         if too_close_to_other_heading:
             continue
@@ -96,8 +118,8 @@ def predict_options(cur_pano_id: str, cur_heading: float):
             # unknown where to get the description from
             # "description": "",
             "heading": option_heading,
-            "lat": option_metadata.get("originalLat") or option_metadata['lat'],
-            "lng": option_metadata.get("originalLng") or option_metadata['lng'],
+            "lat": option_metadata.get("lat", 0),
+            "lng": option_metadata.get("lng", 0),
         }
         predicted.append(data)
 
@@ -133,6 +155,8 @@ def get_pano_ids(locations: list, radius: float) -> list[str]:
         json={"locations": requesting_locations, "radius": radius},
     )
     data = res.json()
+    if not 'panoIds' in data:
+      print("bad data?", data)
     return data["panoIds"]
 
 
@@ -151,9 +175,12 @@ def calculate_heading(start: tuple[float, float], end: tuple[float, float]) -> f
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python internet_roadtrip_panos.py <pano_id> <heading>")
-        sys.exit(1)
+    if len(sys.argv) < 3:
+      print("Usage: python internet_roadtrip_panos.py <pano_id> <heading> [<distance>]")
+      sys.exit(1)
 
     pano_id, heading = sys.argv[1], float(sys.argv[2])
-    main(pano_id, heading)
+    if len(sys.argv) > 3:
+      main(pano_id, heading, float(sys.argv[3]))
+    else:
+      main(pano_id, heading)
