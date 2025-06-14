@@ -226,13 +226,23 @@
                 return;
             }
             const { lng, lat } = e.lngLat;
-            clickedPoints.push({ lat, lng });
+            const point = { lat, lng };
+            clickedPoints.push(point);
 
             const marker = new maplibregl.Marker({ color: '#FFA500' /* Orange for click */ })
                 .setLngLat([lng, lat])
                 .setPopup(new maplibregl.Popup().setText(`Clicked: ${lat.toFixed(5)}, ${lng.toFixed(5)}`))
                 .addTo(map);
             clickMarkers.push(marker);
+
+            marker.getElement().addEventListener('contextmenu', (event) => {
+                const pointIndex = clickedPoints.indexOf(point);
+                if (pointIndex < 0) return;
+
+                clickedPoints.splice(pointIndex, 1);
+                marker.remove();
+            });
+
             updateStatus(`Point ${clickedPoints.length} added. Click 'Execute' to search.`);
         }
 
