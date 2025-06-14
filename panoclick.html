@@ -21,10 +21,10 @@
         th { background-color: #f2f2f2; }
         .status { margin-top: 5px; padding: 5px; background-color: #eef; border-radius: 3px;}
         .error { color: red; font-weight: bold; }
-.layers-control .layer-control {
-  display: block;
-  padding: 0.2em;
-}
+        .layers-control .layer-control {
+            display: block;
+            padding: 0.2em;
+        }
     </style>
 </head>
 <body>
@@ -92,452 +92,452 @@
         window.onload = () => {
             map = new maplibregl.Map({
                 container: 'map',
-                    style: 'https://tiles.openfreemap.org/styles/liberty', // Or your preferred MapLibre style
+                style: 'https://tiles.openfreemap.org/styles/liberty', // Or your preferred MapLibre style
                 center: [-63.57966, 44.64798], // Initial center
                 zoom: 12
             });
             map.addControl(new maplibregl.NavigationControl());
             map.on('move', handleMove);
             map.on('click', handleMapClick);
-map.on("load", function() {
-map.addSource('sv', {
-            type: 'raster',
-            'tiles': [
-                'https://mts.googleapis.com/vt?pb=%211m4%211m3%211i{z}%212i{x}%213i{y}%212m8%211e2%212ssvv%214m2%211scc%212s*211m3*211e2*212b1*213e2*212b1*214b1%214m2%211ssvl%212s*212b1%213m11%212sen%213sUS%2112m4%211e68%212m2%211sset%212sRoadmap%2112m3%211e37%212m1%211ssmartmaps%215m1%215f2'],
-            'tileSize': 256});
-        map.addSource('ugc_sv', {
-            type: 'raster',
-            'tiles': [
-                'https://mts.googleapis.com/vt?pb=%211m4%211m3%211i{z}%212i{x}%213i{y}%212m8%211e2%212ssvv%214m2%211scc%212s%2A211m3%2A211e3%2A212b1%2A213e2%2A211m3%2A211e10%2A212b1%2A213e2%2A212b1%2A214b1%214m2%211ssvl%212s%2A212b1%213m16%212sen%213sUS%2112m4%211e68%212m2%211sset%212sRoadmap%2112m3%211e37%212m1%211ssmartmaps%2112m4%211e26%212m2%211sstyles%212ss.e%7Cp.c%3A%23ff0000%2Cs.e%3Ag.f%7Cp.c%3A%23bd5f1b%2Cs.e%3Ag.s%7Cp.c%3A%23f7ca9e%2C%215m1%215f2%0A'
-            ], 'tileSize': 256});
-        map.addLayer(
-            {
-                'id': 'sv-tiles',
-                'type': 'raster',
-                'source': 'sv',
-                'minzoom': 0,
-                'maxzoom': 22
-            });
-        map.addLayer(
-            {
-                'id': 'svugc-tiles',
-                'type': 'raster',
-                'source': 'ugc_sv',
-                'minzoom': 0,
-                'maxzoom': 22
-            }); });
-            loadLastStop();
-        
-let label_to_layer_ids = {
-  'Official Streetview': ["sv-tiles"],
-  'Unofficial Streetview': ["svugc-tiles"],
-  'Clicked': ['points'],
-  'Portals': ['portals']
-};
+            map.on("load", function() {
+                map.addSource('sv', {
+                    type: 'raster',
+                    'tiles': [
+                    'https://mts.googleapis.com/vt?pb=%211m4%211m3%211i{z}%212i{x}%213i{y}%212m8%211e2%212ssvv%214m2%211scc%212s*211m3*211e2*212b1*213e2*212b1*214b1%214m2%211ssvl%212s*212b1%213m11%212sen%213sUS%2112m4%211e68%212m2%211sset%212sRoadmap%2112m3%211e37%212m1%211ssmartmaps%215m1%215f2'],
+                    'tileSize': 256});
+                    map.addSource('ugc_sv', {
+                        type: 'raster',
+                        'tiles': [
+                        'https://mts.googleapis.com/vt?pb=%211m4%211m3%211i{z}%212i{x}%213i{y}%212m8%211e2%212ssvv%214m2%211scc%212s%2A211m3%2A211e3%2A212b1%2A213e2%2A211m3%2A211e10%2A212b1%2A213e2%2A212b1%2A214b1%214m2%211ssvl%212s%2A212b1%213m16%212sen%213sUS%2112m4%211e68%212m2%211sset%212sRoadmap%2112m3%211e37%212m1%211ssmartmaps%2112m4%211e26%212m2%211sstyles%212ss.e%7Cp.c%3A%23ff0000%2Cs.e%3Ag.f%7Cp.c%3A%23bd5f1b%2Cs.e%3Ag.s%7Cp.c%3A%23f7ca9e%2C%215m1%215f2%0A'
+                        ], 'tileSize': 256});
+                        map.addLayer(
+                        {
+                            'id': 'sv-tiles',
+                            'type': 'raster',
+                            'source': 'sv',
+                            'minzoom': 0,
+                            'maxzoom': 22
+                        });
+                        map.addLayer(
+                        {
+                            'id': 'svugc-tiles',
+                            'type': 'raster',
+                            'source': 'ugc_sv',
+                            'minzoom': 0,
+                            'maxzoom': 22
+                        }); });
+                        loadLastStop();
 
-// Create control
-let lc = new LayersControl(label_to_layer_ids); 
-  map.addControl(lc);
-        };
-        async function loadClickedPoints() {
-          let fc = {'type': 'FeatureCollection', 'features': []};
-          const data = await fetch(`${API_BASE_URL}/shortlist`).then((res) => res.json());
-          data.forEach(item => {
-            fc.features.push({'type':'Feature', 'geometry': {'type':'Point', 'coordinates': [item[1], item[0]]}});
-          });
-          map.addSource('clickedPoints', {'type':'geojson',
-          data:fc});
-          map.addLayer({
-  id: 'points',
-  type: 'circle',
-  source: 'clickedPoints',
-  paint: {
-    'circle-radius': 4,
-    'circle-color': '#00ff00' // Green color
-  }
-});
-          
-let fc2 = {'type': 'FeatureCollection', 'features': []};
-          const data2 = await fetch(`${API_BASE_URL}/list?min_distance=.5&format=short`).then((res) => res.json());
-          data2.forEach(item => {
-            fc2.features.push({'type':'Feature', 'geometry': {'type':'Point', 'coordinates': [item[1], item[0]]}});
-          });
-          map.addSource('clickedPortals', {'type':'geojson',
-          data:fc2});
-          map.addLayer({
-  id: 'portals',
-  type: 'circle',
-  source: 'clickedPortals',
-  paint: {
-    'circle-radius': 6,
-    'circle-color': '#0000ff' // Green color
-  }
-});
+                        let label_to_layer_ids = {
+                            'Official Streetview': ["sv-tiles"],
+                            'Unofficial Streetview': ["svugc-tiles"],
+                            'Clicked': ['points'],
+                            'Portals': ['portals']
+                        };
 
-}
-        async function loadLastStop() {
-            const coordsElem = document.getElementById('mapCenterCoords')
-        const urlParams = new URLSearchParams(window.location.search);
-        const lat = urlParams.get('lat');
-        const lng = urlParams.get('lng');
-        console.log(urlParams.get('lat'));
-        let quiet = true;
-        if (lat && lng) {
-            coordsElem.value = [lat, lng].join(",");
-            quiet = false;
-         } else {
-          const data = await fetch(`https://roadtrip.pikarocks.dev/query?limit=1`).then((res) => res.json());
-          const lastStop = data.results[0];
-    
-            if (lastStop == null || lastStop.pano == null || lastStop.heading == null) {
-              alert('No data for last stop?');
-              return;
-            }
-            coordsElem.value = [lastStop.lat, lastStop.lng].join(",");
-          }
-          setMapCenter(quiet);
-          loadClickedPoints();
-        }
-        function setMapCenter(quiet) {
-            const coordsString = document.getElementById('mapCenterCoords').value;
-            const parts = coordsString.split(',').map(s => parseFloat(s.trim()));
-            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-                map.flyTo({ center: [parts[1], parts[0]], zoom: 17, animate: false });
-                if (!quiet) {
-                  handleMapClick({lngLat: {lng: parts[1], lat: parts[0]}});
-                } 
-            } else {
-                updateStatus("Invalid coordinates for map center.", true);
-            }
-        }
-        function handleMove(e) {
-          let center = map.getCenter();
-          
-          const coordsElem = document.getElementById('coords');
-          coordsElem.innerHTML = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
-        }
+                        // Create control
+                        let lc = new LayersControl(label_to_layer_ids);
+                        map.addControl(lc);
+                    };
+                    async function loadClickedPoints() {
+                        let fc = {'type': 'FeatureCollection', 'features': []};
+                        const data = await fetch(`${API_BASE_URL}/shortlist`).then((res) => res.json());
+                        data.forEach(item => {
+                            fc.features.push({'type':'Feature', 'geometry': {'type':'Point', 'coordinates': [item[1], item[0]]}});
+                        });
+                        map.addSource('clickedPoints', {'type':'geojson',
+                        data:fc});
+                        map.addLayer({
+                            id: 'points',
+                            type: 'circle',
+                            source: 'clickedPoints',
+                            paint: {
+                                'circle-radius': 4,
+                                'circle-color': '#00ff00' // Green color
+                            }
+                        });
 
-        function handleMapClick(e) {
-            console.log(e);
-            if (clickedPoints.length >= MAX_CLICK_POINTS) {
-                updateStatus(`Maximum ${MAX_CLICK_POINTS} points reached.`, true);
-                return;
-            }
-            const { lng, lat } = e.lngLat;
-            clickedPoints.push({ lat, lng });
+                        let fc2 = {'type': 'FeatureCollection', 'features': []};
+                        const data2 = await fetch(`${API_BASE_URL}/list?min_distance=.5&format=short`).then((res) => res.json());
+                        data2.forEach(item => {
+                            fc2.features.push({'type':'Feature', 'geometry': {'type':'Point', 'coordinates': [item[1], item[0]]}});
+                        });
+                        map.addSource('clickedPortals', {'type':'geojson',
+                        data:fc2});
+                        map.addLayer({
+                            id: 'portals',
+                            type: 'circle',
+                            source: 'clickedPortals',
+                            paint: {
+                                'circle-radius': 6,
+                                'circle-color': '#0000ff' // Green color
+                            }
+                        });
 
-            const marker = new maplibregl.Marker({ color: '#FFA500' /* Orange for click */ })
-                .setLngLat([lng, lat])
-                .setPopup(new maplibregl.Popup().setText(`Clicked: ${lat.toFixed(5)}, ${lng.toFixed(5)}`))
-                .addTo(map);
-            clickMarkers.push(marker);
-            updateStatus(`Point ${clickedPoints.length} added. Click 'Execute' to search.`);
-        }
-
-        function updateStatus(message, isError = false) {
-            const statusDiv = document.getElementById('status');
-            statusDiv.textContent = message;
-            statusDiv.className = isError ? 'status error' : 'status';
-        }
-
-        // Haversine distance (reused)
-        function haversineDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // Earth radius in meters
-            const phi1 = lat1 * Math.PI / 180;
-            const phi2 = lat2 * Math.PI / 180;
-            const deltaPhi = (lat2 - lat1) * Math.PI / 180;
-            const deltaLambda = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-                      Math.cos(phi1) * Math.cos(phi2) *
-                      Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
-        }
-
-        async function saveToServer(results) {
-          const url = `${API_BASE_URL}/add`;
-          response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(results)
-            });
-          return await response.json();
-        }
-           
-        async function getStreetViewMetadata(panoId, apiKey, sessionKey) {
-            const url = `${METADATA_API_URL}?session=${sessionKey}&key=${apiKey}&panoId=${panoId}`;
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    console.error(`Error fetching metadata for ${panoId}: ${response.statusText}`);
-                    return null;
-                }
-                return await response.json();
-            } catch (error) {
-                console.error(`Network error fetching metadata for ${panoId}:`, error);
-                return null;
-            }
-        }
-
-        async function processClickedPoints() {
-            const searchParams = new URLSearchParams(location.search);
-
-            // API_KEY
-            const apiKey = searchParams.get('apiKey') || 'YOUR_API_KEY';
-            const sessionKey = searchParams.get('sessionKey') || 'YOUR_SESSION_KEY';
-            if (!apiKey || apiKey === "YOUR_API_KEY" || !sessionKey || sessionKey === "YOUR_SESSION_KEY") {
-                updateStatus('Error: Please enter your API Key and Session Key.', true);
-                return;
-            }
-            const pointsToQuery = clickedPoints.slice(processedPointCount);
-            if (pointsToQuery.length === 0) {
-                //updateStatus('Error: No points clicked on the map.', true);
-                updateStatus('No new points clicked since last execution.', false);
-                return;
-            }
-
-            updateStatus(`Processing ${pointsToQuery.length} new points...`);
-            document.getElementById('executeButton').disabled = true;
-
-            // Clear previous results (markers, lines, table)
-            //clearResultFeatures();
-            const tableBody = document.getElementById('resultsTable').getElementsByTagName('tbody')[0];
-            //tableBody.innerHTML = '';
-
-            let foundPanosCount = 0;
-            const currentRunResults = [];
-
-            let locations = [];
-            for (let i = 0; i < pointsToQuery.length; i++) {
-                const point = pointsToQuery[i];
-
-                locations.push({ lat: point.lat, lng: point.lng })
-            }
-                const panoRequestPayload = {
-                    locations: locations,
-                    radius: SEARCH_RADIUS_M
-                };
-
-                try {
-                    const panoResponse = await fetch(`${PANO_IDS_API_URL}?session=${sessionKey}&key=${apiKey}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(panoRequestPayload)
-                    });
-
-                    if (!panoResponse.ok) {
-                        console.warn(`PanoID API error for point ${i+1}: ${panoResponse.statusText}`);
-                        return;
                     }
-                    const panoData = await panoResponse.json();
-                      
-                    if (panoData.panoIds && panoData.panoIds.length > 0) {
-                        for (let i = 0; i < panoData.panoIds.length; i++) {
-                          updateStatus(`Querying point ${i + 1}/${clickedPoints.length}...`);
-                          const panoId = panoData.panoIds[i];
+                    async function loadLastStop() {
+                        const coordsElem = document.getElementById('mapCenterCoords')
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const lat = urlParams.get('lat');
+                        const lng = urlParams.get('lng');
+                        console.log(urlParams.get('lat'));
+                        let quiet = true;
+                        if (lat && lng) {
+                            coordsElem.value = [lat, lng].join(",");
+                            quiet = false;
+                        } else {
+                            const data = await fetch(`https://roadtrip.pikarocks.dev/query?limit=1`).then((res) => res.json());
+                            const lastStop = data.results[0];
 
-                          if (!panoId.startsWith('CAoS')) {
-                              console.log(`Skipping non-CAoS panoId: ${panoId} for point ${i+1}`);
-                              continue; // Skip non-CAoS panos
-                          }
-
-                          const metadata = await getStreetViewMetadata(panoId, apiKey, sessionKey);
-                          if (metadata && metadata.lat && metadata.lng) {
-                              const actualLat = metadata.lat;
-                              const actualLng = metadata.lng;
-                              const distance = haversineDistance(locations[i].lat, locations[i].lng, actualLat, actualLng);
-                              
-                              //allResults.push({
-                              currentRunResults.push({
-                                  panoId,
-                                  clickedLat: locations[i].lat,
-                                  clickedLng: locations[i].lng,
-                                  actualLat,
-                                  actualLng,
-                                  distance
-                              });
-                              foundPanosCount++;
-                          } else {
-                              console.warn(`Could not get metadata for CAoS panoId: ${panoId}`);
-                          }
+                            if (lastStop == null || lastStop.pano == null || lastStop.heading == null) {
+                                alert('No data for last stop?');
+                                return;
+                            }
+                            coordsElem.value = [lastStop.lat, lastStop.lng].join(",");
+                        }
+                        setMapCenter(quiet);
+                        loadClickedPoints();
                     }
-                  }
-                } catch (error) {
-                    console.error(`Error processing point ${i + 1}:`, error);
-                }
-            saveToServer(currentRunResults);
-            updateTableAndMap(currentRunResults);
-            processedPointCount = clickedPoints.length; 
-            updateStatus(`Search complete for new points. Found and processed ${foundPanosCount} CAoS panoramas. Results appended.`);
-            document.getElementById('executeButton').disabled = false;
-        }
-       
-        function clearMap() {
-          clearResultFeatures();
-            clickMarkers.forEach(feature => {
-              if (feature.remove) feature.remove();
-            });
-        } 
-        function clearResultFeatures() {
-            resultFeatures.forEach(feature => {
-                if (feature.remove) feature.remove(); // For markers
-                else if (map.getLayer(feature)) map.removeLayer(feature); // For layers (lines)
-                if (map.getSource(feature)) map.removeSource(feature); // For sources (lines)
-            });
-            resultFeatures = [];
-        }
+                    function setMapCenter(quiet) {
+                        const coordsString = document.getElementById('mapCenterCoords').value;
+                        const parts = coordsString.split(',').map(s => parseFloat(s.trim()));
+                        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                            map.flyTo({ center: [parts[1], parts[0]], zoom: 17, animate: false });
+                            if (!quiet) {
+                                handleMapClick({lngLat: {lng: parts[1], lat: parts[0]}});
+                            }
+                        } else {
+                            updateStatus("Invalid coordinates for map center.", true);
+                        }
+                    }
+                    function handleMove(e) {
+                        let center = map.getCenter();
 
-        function updateTableAndMap(results) {
-            const tableBody = document.getElementById('resultsTable').getElementsByTagName('tbody')[0];
-            //tableBody.innerHTML = ''; // Clear existing rows
+                        const coordsElem = document.getElementById('coords');
+                        coordsElem.innerHTML = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
+                    }
 
-            results.forEach((res, index) => {
-                // Add to table only if distance is long
-                if (res.distance > 0) { //DISTANCE_THRESHOLD_LONG) {
-                    const row = tableBody.insertRow(0);
-                    row.insertCell().innerHTML = `<a href="/panoclick.html?lat=${res.clickedLat.toFixed(6)}&lng=${res.clickedLng.toFixed(6)}&pano=${res.panoId}">link</a>`;
-                    row.insertCell().innerHTML = `<a href="/pano.html?pano=${res.panoId}">${res.panoId}</a>`;
-                    row.insertCell().textContent = res.clickedLat.toFixed(6);
-                    row.insertCell().textContent = res.clickedLng.toFixed(6);
-                    row.insertCell().textContent = res.actualLat.toFixed(6);
-                    row.insertCell().textContent = res.actualLng.toFixed(6);
-                    row.insertCell().textContent = res.distance.toFixed(2);
-                }
+                    function handleMapClick(e) {
+                        console.log(e);
+                        if (clickedPoints.length >= MAX_CLICK_POINTS) {
+                            updateStatus(`Maximum ${MAX_CLICK_POINTS} points reached.`, true);
+                            return;
+                        }
+                        const { lng, lat } = e.lngLat;
+                        clickedPoints.push({ lat, lng });
 
-                // Add markers and lines to map
-                let clickedMarkerColor = '#FFFF00'; // Yellow for short distance
-                
-                if (res.distance > DISTANCE_THRESHOLD_LONG) {
-                    clickedMarkerColor = '#0000FF'; // Blue for long distance at clicked location
-
-                    // Add marker for actual location (red)
-                    const actualMarker = new maplibregl.Marker({ color: '#FF0000' })
-                        .setLngLat([res.clickedLng, res.clickedLat])
-                        .setPopup(new maplibregl.Popup().setHTML(`Actual: ${res.panoId}<br>${res.clickedLat.toFixed(5)}, ${res.clickedLng.toFixed(5)}<br>Dist: ${res.distance.toFixed(1)}m`))
+                        const marker = new maplibregl.Marker({ color: '#FFA500' /* Orange for click */ })
+                        .setLngLat([lng, lat])
+                        .setPopup(new maplibregl.Popup().setText(`Clicked: ${lat.toFixed(5)}, ${lng.toFixed(5)}`))
                         .addTo(map);
-                    resultFeatures.push(actualMarker);
+                        clickMarkers.push(marker);
+                        updateStatus(`Point ${clickedPoints.length} added. Click 'Execute' to search.`);
+                    }
 
-                    // Add line connecting clicked and actual
-                    const lineId = `line-${res.panoId}`;
-                    if (!map.getSource(lineId)) {
-                    
-                    map.addSource(lineId, {
-                        'type': 'geojson',
-                        'data': {
-                            'type': 'Feature',
-                            'properties': {},
-                            'geometry': {
-                                'type': 'LineString',
-                                'coordinates': [
-                                    [res.clickedLng, res.clickedLat],
-                                    [res.actualLng, res.actualLat]
-                                ]
+                    function updateStatus(message, isError = false) {
+                        const statusDiv = document.getElementById('status');
+                        statusDiv.textContent = message;
+                        statusDiv.className = isError ? 'status error' : 'status';
+                    }
+
+                    // Haversine distance (reused)
+                    function haversineDistance(lat1, lon1, lat2, lon2) {
+                        const R = 6371e3; // Earth radius in meters
+                        const phi1 = lat1 * Math.PI / 180;
+                        const phi2 = lat2 * Math.PI / 180;
+                        const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+                        const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+                        const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+                        Math.cos(phi1) * Math.cos(phi2) *
+                        Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+                        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                        return R * c;
+                    }
+
+                    async function saveToServer(results) {
+                        const url = `${API_BASE_URL}/add`;
+                        response = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(results)
+                        });
+                        return await response.json();
+                    }
+
+                    async function getStreetViewMetadata(panoId, apiKey, sessionKey) {
+                        const url = `${METADATA_API_URL}?session=${sessionKey}&key=${apiKey}&panoId=${panoId}`;
+                        try {
+                            const response = await fetch(url);
+                            if (!response.ok) {
+                                console.error(`Error fetching metadata for ${panoId}: ${response.statusText}`);
+                                return null;
+                            }
+                            return await response.json();
+                        } catch (error) {
+                            console.error(`Network error fetching metadata for ${panoId}:`, error);
+                            return null;
+                        }
+                    }
+
+                    async function processClickedPoints() {
+                        const searchParams = new URLSearchParams(location.search);
+
+                        // API_KEY
+                        const apiKey = searchParams.get('apiKey') || 'YOUR_API_KEY';
+                        const sessionKey = searchParams.get('sessionKey') || 'YOUR_SESSION_KEY';
+                        if (!apiKey || apiKey === "YOUR_API_KEY" || !sessionKey || sessionKey === "YOUR_SESSION_KEY") {
+                            updateStatus('Error: Please enter your API Key and Session Key.', true);
+                            return;
+                        }
+                        const pointsToQuery = clickedPoints.slice(processedPointCount);
+                        if (pointsToQuery.length === 0) {
+                            //updateStatus('Error: No points clicked on the map.', true);
+                            updateStatus('No new points clicked since last execution.', false);
+                            return;
+                        }
+
+                        updateStatus(`Processing ${pointsToQuery.length} new points...`);
+                        document.getElementById('executeButton').disabled = true;
+
+                        // Clear previous results (markers, lines, table)
+                        //clearResultFeatures();
+                        const tableBody = document.getElementById('resultsTable').getElementsByTagName('tbody')[0];
+                        //tableBody.innerHTML = '';
+
+                        let foundPanosCount = 0;
+                        const currentRunResults = [];
+
+                        let locations = [];
+                        for (let i = 0; i < pointsToQuery.length; i++) {
+                            const point = pointsToQuery[i];
+
+                            locations.push({ lat: point.lat, lng: point.lng })
+                        }
+                        const panoRequestPayload = {
+                            locations: locations,
+                            radius: SEARCH_RADIUS_M
+                        };
+
+                        try {
+                            const panoResponse = await fetch(`${PANO_IDS_API_URL}?session=${sessionKey}&key=${apiKey}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(panoRequestPayload)
+                            });
+
+                            if (!panoResponse.ok) {
+                                console.warn(`PanoID API error for point ${i+1}: ${panoResponse.statusText}`);
+                                return;
+                            }
+                            const panoData = await panoResponse.json();
+
+                            if (panoData.panoIds && panoData.panoIds.length > 0) {
+                                for (let i = 0; i < panoData.panoIds.length; i++) {
+                                    updateStatus(`Querying point ${i + 1}/${clickedPoints.length}...`);
+                                    const panoId = panoData.panoIds[i];
+
+                                    if (!panoId.startsWith('CAoS')) {
+                                        console.log(`Skipping non-CAoS panoId: ${panoId} for point ${i+1}`);
+                                        continue; // Skip non-CAoS panos
+                                    }
+
+                                    const metadata = await getStreetViewMetadata(panoId, apiKey, sessionKey);
+                                    if (metadata && metadata.lat && metadata.lng) {
+                                        const actualLat = metadata.lat;
+                                        const actualLng = metadata.lng;
+                                        const distance = haversineDistance(locations[i].lat, locations[i].lng, actualLat, actualLng);
+
+                                        //allResults.push({
+                                        currentRunResults.push({
+                                            panoId,
+                                            clickedLat: locations[i].lat,
+                                            clickedLng: locations[i].lng,
+                                            actualLat,
+                                            actualLng,
+                                            distance
+                                        });
+                                        foundPanosCount++;
+                                    } else {
+                                        console.warn(`Could not get metadata for CAoS panoId: ${panoId}`);
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            console.error(`Error processing point ${i + 1}:`, error);
+                        }
+                        saveToServer(currentRunResults);
+                        updateTableAndMap(currentRunResults);
+                        processedPointCount = clickedPoints.length;
+                        updateStatus(`Search complete for new points. Found and processed ${foundPanosCount} CAoS panoramas. Results appended.`);
+                        document.getElementById('executeButton').disabled = false;
+                    }
+
+                    function clearMap() {
+                        clearResultFeatures();
+                        clickMarkers.forEach(feature => {
+                            if (feature.remove) feature.remove();
+                        });
+                    }
+                    function clearResultFeatures() {
+                        resultFeatures.forEach(feature => {
+                            if (feature.remove) feature.remove(); // For markers
+                            else if (map.getLayer(feature)) map.removeLayer(feature); // For layers (lines)
+                            if (map.getSource(feature)) map.removeSource(feature); // For sources (lines)
+                        });
+                        resultFeatures = [];
+                    }
+
+                    function updateTableAndMap(results) {
+                        const tableBody = document.getElementById('resultsTable').getElementsByTagName('tbody')[0];
+                        //tableBody.innerHTML = ''; // Clear existing rows
+
+                        results.forEach((res, index) => {
+                            // Add to table only if distance is long
+                            if (res.distance > 0) { //DISTANCE_THRESHOLD_LONG) {
+                                const row = tableBody.insertRow(0);
+                                row.insertCell().innerHTML = `<a href="/panoclick.html?lat=${res.clickedLat.toFixed(6)}&lng=${res.clickedLng.toFixed(6)}&pano=${res.panoId}">link</a>`;
+                                row.insertCell().innerHTML = `<a href="/pano.html?pano=${res.panoId}">${res.panoId}</a>`;
+                                row.insertCell().textContent = res.clickedLat.toFixed(6);
+                                row.insertCell().textContent = res.clickedLng.toFixed(6);
+                                row.insertCell().textContent = res.actualLat.toFixed(6);
+                                row.insertCell().textContent = res.actualLng.toFixed(6);
+                                row.insertCell().textContent = res.distance.toFixed(2);
+                            }
+
+                            // Add markers and lines to map
+                            let clickedMarkerColor = '#FFFF00'; // Yellow for short distance
+
+                            if (res.distance > DISTANCE_THRESHOLD_LONG) {
+                                clickedMarkerColor = '#0000FF'; // Blue for long distance at clicked location
+
+                                // Add marker for actual location (red)
+                                const actualMarker = new maplibregl.Marker({ color: '#FF0000' })
+                                .setLngLat([res.clickedLng, res.clickedLat])
+                                .setPopup(new maplibregl.Popup().setHTML(`Actual: ${res.panoId}<br>${res.clickedLat.toFixed(5)}, ${res.clickedLng.toFixed(5)}<br>Dist: ${res.distance.toFixed(1)}m`))
+                                .addTo(map);
+                                resultFeatures.push(actualMarker);
+
+                                // Add line connecting clicked and actual
+                                const lineId = `line-${res.panoId}`;
+                                if (!map.getSource(lineId)) {
+
+                                    map.addSource(lineId, {
+                                        'type': 'geojson',
+                                        'data': {
+                                            'type': 'Feature',
+                                            'properties': {},
+                                            'geometry': {
+                                                'type': 'LineString',
+                                                'coordinates': [
+                                                [res.clickedLng, res.clickedLat],
+                                                [res.actualLng, res.actualLat]
+                                                ]
+                                            }
+                                        }
+                                    });
+                                    map.addLayer({
+                                        'id': lineId,
+                                        'type': 'line',
+                                        'source': lineId,
+                                        'layout': {
+                                            'line-join': 'round',
+                                            'line-cap': 'round'
+                                        },
+                                        'paint': {
+                                            'line-color': '#888', // Grey line
+                                            'line-width': 2
+                                        }
+                                    });
+                                    resultFeatures.push(lineId); // Store ID to remove layer/source later
+                                }
+                            }
+
+                            // Marker at clicked location (yellow or blue)
+                            const clickedResultMarker = new maplibregl.Marker({ color: clickedMarkerColor })
+                            .setLngLat([res.actualLng, res.actualLat])
+                            .setPopup(new maplibregl.Popup().setHTML(`Clicked for: ${res.panoId}<br>${res.actualLat.toFixed(5)}, ${res.actualLng.toFixed(5)}<br>Dist: ${res.distance.toFixed(1)}m`))
+                            .addTo(map);
+                            resultFeatures.push(clickedResultMarker);
+                        });
+                    }
+                    class LayersControl {
+                        constructor(ctrls) {
+                            // This div will hold all the checkboxes and their labels
+                            this._container = document.createElement("div");
+                            this._container.classList.add(
+                            // Built-in classes for consistency
+                            "maplibregl-ctrl",
+                            "maplibregl-ctrl-group",
+                            // Custom class, see later
+                            "layers-control",
+                            );
+                            // Might be cleaner to deep copy these instead
+                            this._ctrls = ctrls;
+                            // Direct access to the input elements so I can decide which should be
+                            // checked when adding the control to the map.
+                            this._inputs = [];
+                            // Create the checkboxes and add them to the container
+                            for (const key of Object.keys(this._ctrls)) {
+                                let labeled_checkbox = this._createLabeledCheckbox(key);
+                                this._container.appendChild(labeled_checkbox);
                             }
                         }
-                    });
-                    map.addLayer({
-                        'id': lineId,
-                        'type': 'line',
-                        'source': lineId,
-                        'layout': {
-                            'line-join': 'round',
-                            'line-cap': 'round'
-                        },
-                        'paint': {
-                            'line-color': '#888', // Grey line
-                            'line-width': 2
+
+                        // Creates one checkbox and its label
+                        _createLabeledCheckbox(key) {
+                            let label = document.createElement("label");
+                            label.classList.add("layer-control");
+                            let text = document.createTextNode(key);
+                            let input = document.createElement("input");
+                            this._inputs.push(input);
+                            input.type = "checkbox";
+                            input.id = key;
+                            // `=>` function syntax keeps `this` to the LayersControl object
+                            // When changed, toggle all the layers associated with the checkbox via
+                            // `this._ctrls`.
+                            input.addEventListener("change", () => {
+                                let visibility = input.checked ? "visible" : "none";
+                                for (const layer of this._ctrls[input.id]) {
+                                    map.setLayoutProperty(layer, "visibility", visibility);
+                                }
+                            });
+                            label.appendChild(input);
+                            label.appendChild(text);
+                            return label;
                         }
-                    });
-                    resultFeatures.push(lineId); // Store ID to remove layer/source later
+
+                        onAdd(map) {
+                            this._map = map;
+                            // For every checkbox, find out if all its associated layers are visible.
+                            // Check the box if so.
+                            for (const input of this._inputs) {
+                                // List of all layer ids associated with this checkbox
+                                let layers = this._ctrls[input.id];
+                                // Check whether every layer is currently visible
+                                let is_visible = true;
+                                for (const layername of layers) {
+                                    is_visible =
+                                    is_visible &&
+                                    this._map.getLayoutProperty(layername, "visibility") !== "none";
+                                }
+                                input.checked = is_visible;
+                            }
+                            return this._container;
+                        }
+
+                        onRemove(map) {
+                            // Not sure why we have to do this ourselves since we are not the ones
+                            // adding us to the map.
+                            // Copied from their example so keeping it in.
+                            this._container.parentNode.removeChild(this._container);
+                            // This might be to help garbage collection? Also from their example.
+                            // Or perhaps to ensure calls to this object do not change the map still
+                            // after removal.
+                            this._map = undefined;
+                        }
                     }
-                }
-                
-                // Marker at clicked location (yellow or blue)
-                const clickedResultMarker = new maplibregl.Marker({ color: clickedMarkerColor })
-                    .setLngLat([res.actualLng, res.actualLat])
-                    .setPopup(new maplibregl.Popup().setHTML(`Clicked for: ${res.panoId}<br>${res.actualLat.toFixed(5)}, ${res.actualLng.toFixed(5)}<br>Dist: ${res.distance.toFixed(1)}m`))
-                    .addTo(map);
-                resultFeatures.push(clickedResultMarker);
-            });
-        }
-class LayersControl {
-  constructor(ctrls) {
-    // This div will hold all the checkboxes and their labels
-    this._container = document.createElement("div");
-    this._container.classList.add(
-      // Built-in classes for consistency
-      "maplibregl-ctrl",
-      "maplibregl-ctrl-group",
-      // Custom class, see later
-      "layers-control",
-    );
-    // Might be cleaner to deep copy these instead
-    this._ctrls = ctrls;
-    // Direct access to the input elements so I can decide which should be
-    // checked when adding the control to the map.
-    this._inputs = [];
-    // Create the checkboxes and add them to the container
-    for (const key of Object.keys(this._ctrls)) {
-      let labeled_checkbox = this._createLabeledCheckbox(key);
-      this._container.appendChild(labeled_checkbox);
-    }
-  }
 
-  // Creates one checkbox and its label
-  _createLabeledCheckbox(key) {
-    let label = document.createElement("label");
-    label.classList.add("layer-control");
-    let text = document.createTextNode(key);
-    let input = document.createElement("input");
-    this._inputs.push(input);
-    input.type = "checkbox";
-    input.id = key;
-    // `=>` function syntax keeps `this` to the LayersControl object
-    // When changed, toggle all the layers associated with the checkbox via
-    // `this._ctrls`.
-    input.addEventListener("change", () => {
-      let visibility = input.checked ? "visible" : "none";
-      for (const layer of this._ctrls[input.id]) {
-        map.setLayoutProperty(layer, "visibility", visibility);
-      }
-    });
-    label.appendChild(input);
-    label.appendChild(text);
-    return label;
-  }
+                </script>
 
-  onAdd(map) {
-    this._map = map;
-    // For every checkbox, find out if all its associated layers are visible.
-    // Check the box if so.
-    for (const input of this._inputs) {
-      // List of all layer ids associated with this checkbox
-      let layers = this._ctrls[input.id];
-      // Check whether every layer is currently visible
-      let is_visible = true;
-      for (const layername of layers) {
-        is_visible =
-          is_visible &&
-          this._map.getLayoutProperty(layername, "visibility") !== "none";
-      }
-      input.checked = is_visible;
-    }
-    return this._container;
-  }
-
-  onRemove(map) {
-    // Not sure why we have to do this ourselves since we are not the ones
-    // adding us to the map.
-    // Copied from their example so keeping it in.
-    this._container.parentNode.removeChild(this._container);
-    // This might be to help garbage collection? Also from their example.
-    // Or perhaps to ensure calls to this object do not change the map still
-    // after removal.
-    this._map = undefined;
-  }
-}
-
-    </script>
-
-</body>
-</html>
+            </body>
+            </html>
