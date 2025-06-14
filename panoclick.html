@@ -21,6 +21,10 @@
         th { background-color: #f2f2f2; }
         .status { margin-top: 5px; padding: 5px; background-color: #eef; border-radius: 3px;}
         .error { color: red; font-weight: bold; }
+.layers-control .layer-control {
+  display: block;
+  padding: 0.2em;
+}
     </style>
 </head>
 <body>
@@ -38,6 +42,15 @@
             <label>&nbsp;</label> <!-- Spacer for alignment -->
             <button id="executeButton" onclick="processClickedPoints()">Execute Search on Clicked Points</button>
         </div>
+        <div class="control-group">
+            <label>&nbsp;</label> <!-- Spacer for alignment -->
+            <button id="clearButton" onclick="clearMap()">Clear Map</button>
+        </div>
+
+        <div class="control-group">
+            <label>&nbsp;</label> <!-- Spacer for alignment -->
+            <div id="coords"></div>
+        </div>
     </div>
 
     <div id="map"></div>
@@ -47,13 +60,13 @@
         <table id="resultsTable">
             <thead>
                 <tr>
+                    <th>Link</th>
                     <th>Pano ID</th>
                     <th>Clicked Lat</th>
                     <th>Clicked Lng</th>
                     <th>Actual Lat</th>
                     <th>Actual Lng</th>
                     <th>Distance (m)</th>
-                    <th>Link</th>
                 </tr>
             </thead>
             <tbody>
@@ -84,6 +97,7 @@
                 zoom: 12
             });
             map.addControl(new maplibregl.NavigationControl());
+            map.on('move', handleMove);
             map.on('click', handleMapClick);
 map.on("load", function() {
 map.addSource('sv', {
@@ -113,7 +127,17 @@ map.addSource('sv', {
                 'maxzoom': 22
             }); });
             loadLastStop();
+        
+let label_to_layer_ids = {
+  'Official Streetview': ["sv-tiles"],
+  'Unofficial Streetview': ["svugc-tiles"],
+  'Clicked': ['points'],
+  'Portals': ['portals']
+};
 
+// Create control
+let lc = new LayersControl(label_to_layer_ids); 
+  map.addControl(lc);
         };
         async function loadClickedPoints() {
           let fc = {'type': 'FeatureCollection', 'features': []};
@@ -185,6 +209,12 @@ let fc2 = {'type': 'FeatureCollection', 'features': []};
             } else {
                 updateStatus("Invalid coordinates for map center.", true);
             }
+        }
+        function handleMove(e) {
+          let center = map.getCenter();
+          
+          const coordsElem = document.getElementById('coords');
+          coordsElem.innerHTML = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
         }
 
         function handleMapClick(e) {
@@ -341,7 +371,13 @@ let fc2 = {'type': 'FeatureCollection', 'features': []};
             updateStatus(`Search complete for new points. Found and processed ${foundPanosCount} CAoS panoramas. Results appended.`);
             document.getElementById('executeButton').disabled = false;
         }
-        
+       
+        function clearMap() {
+          clearResultFeatures();
+            clickMarkers.forEach(feature => {
+              if (feature.remove) feature.remove();
+            });
+        } 
         function clearResultFeatures() {
             resultFeatures.forEach(feature => {
                 if (feature.remove) feature.remove(); // For markers
@@ -359,13 +395,13 @@ let fc2 = {'type': 'FeatureCollection', 'features': []};
                 // Add to table only if distance is long
                 if (res.distance > 0) { //DISTANCE_THRESHOLD_LONG) {
                     const row = tableBody.insertRow(0);
+                    row.insertCell().innerHTML = `<a href="/panoclick.html?lat=${res.clickedLat.toFixed(6)}&lng=${res.clickedLng.toFixed(6)}&pano=${res.panoId}">link</a>`;
                     row.insertCell().innerHTML = `<a href="/pano.html?pano=${res.panoId}">${res.panoId}</a>`;
                     row.insertCell().textContent = res.clickedLat.toFixed(6);
                     row.insertCell().textContent = res.clickedLng.toFixed(6);
                     row.insertCell().textContent = res.actualLat.toFixed(6);
                     row.insertCell().textContent = res.actualLng.toFixed(6);
                     row.insertCell().textContent = res.distance.toFixed(2);
-                    row.insertCell().innerHTML = `<a href="/panoclick.html?lat=${res.clickedLat.toFixed(6)}&lng=${res.clickedLng.toFixed(6)}&pano=${res.panoId}">link</a>`;
                 }
 
                 // Add markers and lines to map
@@ -383,8 +419,7 @@ let fc2 = {'type': 'FeatureCollection', 'features': []};
 
                     // Add line connecting clicked and actual
                     const lineId = `line-${res.panoId}`;
-                    if (map.getSource(lineId)) map.removeSource(lineId);
-                    if (map.getLayer(lineId)) map.removeLayer(lineId);
+                    if (!map.getSource(lineId)) {
                     
                     map.addSource(lineId, {
                         'type': 'geojson',
@@ -414,6 +449,7 @@ let fc2 = {'type': 'FeatureCollection', 'features': []};
                         }
                     });
                     resultFeatures.push(lineId); // Store ID to remove layer/source later
+                    }
                 }
                 
                 // Marker at clicked location (yellow or blue)
@@ -424,6 +460,82 @@ let fc2 = {'type': 'FeatureCollection', 'features': []};
                 resultFeatures.push(clickedResultMarker);
             });
         }
+class LayersControl {
+  constructor(ctrls) {
+    // This div will hold all the checkboxes and their labels
+    this._container = document.createElement("div");
+    this._container.classList.add(
+      // Built-in classes for consistency
+      "maplibregl-ctrl",
+      "maplibregl-ctrl-group",
+      // Custom class, see later
+      "layers-control",
+    );
+    // Might be cleaner to deep copy these instead
+    this._ctrls = ctrls;
+    // Direct access to the input elements so I can decide which should be
+    // checked when adding the control to the map.
+    this._inputs = [];
+    // Create the checkboxes and add them to the container
+    for (const key of Object.keys(this._ctrls)) {
+      let labeled_checkbox = this._createLabeledCheckbox(key);
+      this._container.appendChild(labeled_checkbox);
+    }
+  }
+
+  // Creates one checkbox and its label
+  _createLabeledCheckbox(key) {
+    let label = document.createElement("label");
+    label.classList.add("layer-control");
+    let text = document.createTextNode(key);
+    let input = document.createElement("input");
+    this._inputs.push(input);
+    input.type = "checkbox";
+    input.id = key;
+    // `=>` function syntax keeps `this` to the LayersControl object
+    // When changed, toggle all the layers associated with the checkbox via
+    // `this._ctrls`.
+    input.addEventListener("change", () => {
+      let visibility = input.checked ? "visible" : "none";
+      for (const layer of this._ctrls[input.id]) {
+        map.setLayoutProperty(layer, "visibility", visibility);
+      }
+    });
+    label.appendChild(input);
+    label.appendChild(text);
+    return label;
+  }
+
+  onAdd(map) {
+    this._map = map;
+    // For every checkbox, find out if all its associated layers are visible.
+    // Check the box if so.
+    for (const input of this._inputs) {
+      // List of all layer ids associated with this checkbox
+      let layers = this._ctrls[input.id];
+      // Check whether every layer is currently visible
+      let is_visible = true;
+      for (const layername of layers) {
+        is_visible =
+          is_visible &&
+          this._map.getLayoutProperty(layername, "visibility") !== "none";
+      }
+      input.checked = is_visible;
+    }
+    return this._container;
+  }
+
+  onRemove(map) {
+    // Not sure why we have to do this ourselves since we are not the ones
+    // adding us to the map.
+    // Copied from their example so keeping it in.
+    this._container.parentNode.removeChild(this._container);
+    // This might be to help garbage collection? Also from their example.
+    // Or perhaps to ensure calls to this object do not change the map still
+    // after removal.
+    this._map = undefined;
+  }
+}
 
     </script>
 
