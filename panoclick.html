@@ -235,6 +235,8 @@
             clickMarkers.push(marker);
 
             marker.getElement().addEventListener('contextmenu', (event) => {
+                event.stopPropagation();
+                event.preventDefault();
                 const pointIndex = clickedPoints.indexOf(point);
                 if (pointIndex < 0) return;
 
