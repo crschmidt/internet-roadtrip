@@ -15,6 +15,7 @@
         .control-group button { padding: 8px 12px; background-color: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
         .control-group button:hover { background-color: #0056b3; }
         #map { flex-grow: 1; width: 100%; margin-bottom:10px; }
+        #map.locked { outline: 5px solid grey; }
         #resultsContainer { height: 200px; overflow-y: auto; border: 1px solid #ccc; padding:5px; }
         table { border-collapse: collapse; width: 100%; font-size: 0.9em; }
         th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
@@ -137,9 +138,83 @@
                 'Clicked': ['points'],
                 'Portals': ['portals']
             };
+            let layer_ctrls = Object.fromEntries(
+                Object.entries(label_to_layer_ids).map(([label, layer_ids]) => {
+                    const ctrl = {
+                        label,
+                        get initialValue() {
+                            // Check whether every layer is currently visible
+                            let is_visible = true;
+                            for (const layername of layer_ids) {
+                                is_visible =
+                                    is_visible &&
+                                    map.getLayoutProperty(layername, "visibility") !== "none";
+                            }
+                            return is_visible;
+                        },
+                        onChange(checked) {
+                            let visibility = checked ? "visible" : "none";
+                            for (const layer of layer_ids) {
+                                map.setLayoutProperty(layer, "visibility", visibility);
+                            }
+                        }
+                    };
+
+                    return [label, ctrl];
+                })
+            );
+
+            let hold_ctrl_to_move_ctrl;
+            {
+                function lock() {
+                    map.getContainer().classList.add('locked');
+                    map.dragPan.disable();
+                }
+                function unlock() {
+                    map.getContainer().classList.remove('locked');
+                    map.dragPan.enable();
+                }
+
+
+                function handleKeydown(event) {
+                    if (event.altKey) {
+                        event.preventDefault();
+                        unlock();
+                    }
+                }
+                function handleKeyup(event) {
+                    if (!event.altKey) {
+                        event.preventDefault();
+                        lock();
+                    }
+                }
+
+                hold_ctrl_to_move_ctrl = {
+                    label: `Require holding Alt to move`,
+                    initialValue: false,
+                    onChange(checked) {
+                        if (checked) {
+                            lock();
+
+                            window.addEventListener('keydown', handleKeydown);
+                            window.addEventListener('keyup', handleKeyup);
+                        } else {
+                            unlock();
+
+                            window.removeEventListener('keydown', handleKeydown);
+                            window.removeEventListener('keyup', handleKeyup);
+                        }
+                    }
+                };
+            }
+
+            let map_ctrls = {
+                ... layer_ctrls,
+                hold_ctrl_to_move_ctrl
+            };
 
             // Create control
-            let lc = new LayersControl(label_to_layer_ids);
+            let lc = new MapControls(map_ctrls);
             map.addControl(lc);
         };
         async function loadClickedPoints() {
@@ -472,7 +547,7 @@
                 resultFeatures.push(clickedResultMarker);
             });
         }
-        class LayersControl {
+        class MapControls {
             constructor(ctrls) {
                 // This div will hold all the checkboxes and their labels
                 this._container = document.createElement("div");
@@ -487,32 +562,27 @@
                 this._ctrls = ctrls;
                 // Direct access to the input elements so I can decide which should be
                 // checked when adding the control to the map.
-                this._inputs = [];
+                this._inputs = {};
                 // Create the checkboxes and add them to the container
-                for (const key of Object.keys(this._ctrls)) {
-                    let labeled_checkbox = this._createLabeledCheckbox(key);
+                for (const [key, ctrl] of Object.entries(this._ctrls)) {
+                    let labeled_checkbox = this._createLabeledCheckbox(key, ctrl);
                     this._container.appendChild(labeled_checkbox);
                 }
             }
 
             // Creates one checkbox and its label
-            _createLabeledCheckbox(key) {
+            _createLabeledCheckbox(key, ctrl) {
                 let label = document.createElement("label");
                 label.classList.add("layer-control");
-                let text = document.createTextNode(key);
+                let text = document.createTextNode(ctrl.label);
                 let input = document.createElement("input");
-                this._inputs.push(input);
+                this._inputs[key] = input;
                 input.type = "checkbox";
                 input.id = key;
-                // `=>` function syntax keeps `this` to the LayersControl object
+                // `=>` function syntax keeps `this` to the MapControl object
                 // When changed, toggle all the layers associated with the checkbox via
                 // `this._ctrls`.
-                input.addEventListener("change", () => {
-                    let visibility = input.checked ? "visible" : "none";
-                    for (const layer of this._ctrls[input.id]) {
-                        map.setLayoutProperty(layer, "visibility", visibility);
-                    }
-                });
+                input.addEventListener("change", () => ctrl.onChange(input.checked));
                 label.appendChild(input);
                 label.appendChild(text);
                 return label;
@@ -520,19 +590,8 @@
 
             onAdd(map) {
                 this._map = map;
-                // For every checkbox, find out if all its associated layers are visible.
-                // Check the box if so.
-                for (const input of this._inputs) {
-                    // List of all layer ids associated with this checkbox
-                    let layers = this._ctrls[input.id];
-                    // Check whether every layer is currently visible
-                    let is_visible = true;
-                    for (const layername of layers) {
-                        is_visible =
-                            is_visible &&
-                            this._map.getLayoutProperty(layername, "visibility") !== "none";
-                    }
-                    input.checked = is_visible;
+                for (const [key, input] of Object.entries(this._inputs)) {
+                    input.checked = this._ctrls[key].initialValue;
                 }
                 return this._container;
             }
