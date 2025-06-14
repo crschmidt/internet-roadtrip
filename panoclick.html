@@ -64,6 +64,7 @@
     <script>
         const METADATA_API_URL = "https://tile.googleapis.com/v1/streetview/metadata";
         const PANO_IDS_API_URL = "https://tile.googleapis.com/v1/streetview/panoIds";
+        const API_BASE_URL = new URLSearchParams(location.search).get('apiBaseUrl') || '/serve';
         const MAX_CLICK_POINTS = 10000;
         const SEARCH_RADIUS_M = 10;
         const DISTANCE_THRESHOLD_LONG = 10; // Meters for "long" distance
@@ -112,11 +113,11 @@ map.addSource('sv', {
                 'maxzoom': 22
             }); });
             loadLastStop();
-        
+
         };
         async function loadClickedPoints() {
           let fc = {'type': 'FeatureCollection', 'features': []};
-          const data = await fetch(`/serve/shortlist`).then((res) => res.json());
+          const data = await fetch(`${API_BASE_URL}/shortlist`).then((res) => res.json());
           data.forEach(item => {
             fc.features.push({'type':'Feature', 'geometry': {'type':'Point', 'coordinates': [item[1], item[0]]}});
           });
@@ -133,7 +134,7 @@ map.addSource('sv', {
 });
           
 let fc2 = {'type': 'FeatureCollection', 'features': []};
-          const data2 = await fetch(`/serve/list?min_distance=.5&format=short`).then((res) => res.json());
+          const data2 = await fetch(`${API_BASE_URL}/list?min_distance=.5&format=short`).then((res) => res.json());
           data2.forEach(item => {
             fc2.features.push({'type':'Feature', 'geometry': {'type':'Point', 'coordinates': [item[1], item[0]]}});
           });
@@ -224,7 +225,7 @@ let fc2 = {'type': 'FeatureCollection', 'features': []};
         }
 
         async function saveToServer(results) {
-          const url = `/serve/add`;
+          const url = `${API_BASE_URL}/add`;
           response = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -249,9 +250,11 @@ let fc2 = {'type': 'FeatureCollection', 'features': []};
         }
 
         async function processClickedPoints() {
+            const searchParams = new URLSearchParams(location.search);
+
             // API_KEY
-            const apiKey = 'YOUR_API_KEY';
-            const sessionKey = 'YOUR_SESSION_KEY';
+            const apiKey = searchParams.get('apiKey') || 'YOUR_API_KEY';
+            const sessionKey = searchParams.get('sessionKey') || 'YOUR_SESSION_KEY';
             if (!apiKey || apiKey === "YOUR_API_KEY" || !sessionKey || sessionKey === "YOUR_SESSION_KEY") {
                 updateStatus('Error: Please enter your API Key and Session Key.', true);
                 return;
@@ -276,7 +279,7 @@ let fc2 = {'type': 'FeatureCollection', 'features': []};
 
             let locations = [];
             for (let i = 0; i < pointsToQuery.length; i++) {
-                const point = pointsToQuery[i]; 
+                const point = pointsToQuery[i];
 
                 locations.push({ lat: point.lat, lng: point.lng })
             }
