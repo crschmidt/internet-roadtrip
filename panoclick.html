@@ -56,15 +56,21 @@
             background-color: #0056b3;
         }
         #map {
-            flex-grow: 1;
             width: 100%;
-            margin-bottom:10px;
+            height: 100%;
+            max-height: 100%;
+        }
+        #map-resize {
+            text-align: center;
+            user-select: none;
+            cursor: ns-resize;
         }
         #resultsContainer {
             height: 200px;
             overflow-y: auto;
             border: 1px solid #ccc;
-            padding:5px;
+            padding: 5px;
+            flex-grow: 1;
         }
         table {
             border-collapse: collapse;
@@ -80,7 +86,6 @@
             background-color: #f2f2f2;
         }
         .status {
-            margin-top: 5px;
             padding: 5px;
             background-color: #eef;
             border-radius: 3px;}
@@ -121,6 +126,8 @@
     </div>
 
     <div id="map"></div>
+    <div id="map-resize">•••</div>
+
     <div id="status" class="status">Click on the map to add points (max 100).</div>
 
     <div id="resultsContainer">
@@ -149,6 +156,7 @@
         const SEARCH_RADIUS_M = 10;
         const DISTANCE_THRESHOLD_LONG = 10; // Meters for "long" distance
 
+        const mapContainerEl = document.querySelector('#map');
         let map;
         let clickedPoints = [];
         let clickMarkers = []; // Markers for user clicks
@@ -158,7 +166,7 @@
         // Initialize Map
         window.onload = () => {
             map = new maplibregl.Map({
-                container: 'map',
+                container: mapContainerEl,
                 style: 'https://tiles.openfreemap.org/styles/liberty', // Or your preferred MapLibre style
                 center: [-63.57966, 44.64798], // Initial center
                 zoom: 12
@@ -311,6 +319,36 @@
             });
 
             updateStatus(`Point ${clickedPoints.length} added. Click 'Execute' to search.`);
+        }
+
+        // Handle map resize
+        {
+            const mapResizeEl = document.querySelector('#map-resize');
+
+            let resizingState = null;
+            let isResizing = false;
+            let startMapSize = null;
+            let startMouseY = null;
+
+            mapResizeEl.addEventListener('mousedown', (event) => {
+                resizingState = {
+                    startMouseY: event.screenY,
+                    startMapHeight: mapContainerEl.getBoundingClientRect().height
+                };
+            });
+
+            window.addEventListener('mousemove', () => {
+                if (resizingState == null) return;
+
+                const newHeight = resizingState.startMapHeight + (event.screenY - resizingState.startMouseY);
+                mapContainerEl.style.height = `${newHeight}px`;
+
+                map.resize();
+            });
+
+            window.addEventListener('mouseup', () => {
+                resizingState = null;
+            });
         }
 
         function updateStatus(message, isError = false) {
