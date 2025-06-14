@@ -1,0 +1,17 @@
+{
+  "name": "internet-roadtrip-backend",
+  "version": "1.0.0",
+  "description": "Backend service for internet roadtrip",
+  "main": "panoserver.js",
+  "scripts": {
+    "start": "node panoserver.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.6" 
+  },
+  "author": "",
+  "license": "ISC"
+}
