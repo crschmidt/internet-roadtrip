@@ -99,6 +99,7 @@
             map.addControl(new maplibregl.NavigationControl());
             map.on('move', handleMove);
             map.on('click', handleMapClick);
+            map.on('contextmenu', handleMapContext);
             map.on("load", function() {
                 map.addSource('sv', {
                     type: 'raster',
@@ -218,14 +219,12 @@
             const coordsElem = document.getElementById('coords');
             coordsElem.innerHTML = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
         }
-
-        function handleMapClick(e) {
-            console.log(e);
+        
+        function addClickedPoint(lng, lat) {
             if (clickedPoints.length >= MAX_CLICK_POINTS) {
                 updateStatus(`Maximum ${MAX_CLICK_POINTS} points reached.`, true);
                 return;
             }
-            const { lng, lat } = e.lngLat;
             clickedPoints.push({ lat, lng });
 
             const marker = new maplibregl.Marker({ color: '#FFA500' /* Orange for click */ })
@@ -234,6 +233,30 @@
                 .addTo(map);
             clickMarkers.push(marker);
             updateStatus(`Point ${clickedPoints.length} added. Click 'Execute' to search.`);
+        }
+
+        function handleMapClick(e) {
+            console.log(e);
+            const { lng, lat } = e.lngLat;
+            addClickedPoint(lng, lat);
+        }
+
+        async function handleMapContext(e) {
+            console.log(e);
+            const { lng, lat } = e.lngLat;
+            // This seems to be an ok heuristic to get the requested tile
+            // to match what the user sees
+            const z = Math.ceil(map.getZoom())+1;
+            // Fetch the panos at the right-clicked location and add them to the map
+            const data = await fetch(
+                `https://irt.jdranczewski.dev/panos?lat=${lat}&lng=${lng}&z=${z}`
+            ).then((res) => res.json());
+            console.log(data);
+
+            data.forEach((point) => {
+                addClickedPoint(point[1], point[0]);
+            })
+            updateStatus(`Points from tile added. Click 'Execute' to search.`);
         }
 
         function updateStatus(message, isError = false) {
