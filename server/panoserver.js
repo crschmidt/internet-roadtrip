@@ -60,14 +60,16 @@ app.post('/add', (req, res) => {
     const items = req.body;
 
     if (!Array.isArray(items) || items.length === 0) {
-        return res.status(400).json({ status: 'error', error: 'Request body must be a non-empty JSON array.' });
+        res.status(400).json({ status: 'error', error: 'Request body must be a non-empty JSON array.' });
+        return;
     }
 
     // Validate all items before starting transaction
     for (const item of items) {
         const { panoId, clickedLat, clickedLng, actualLat, actualLng } = item;
         if (panoId === undefined || typeof clickedLat !== 'number' || typeof clickedLng !== 'number' || typeof actualLat !== 'number' || typeof actualLng !== 'number') {
-            return res.status(400).json({ status: 'error', error: 'One or more items are missing required fields (panoId, clickedLat, clickedLng, actualLat, actualLng) or fields have incorrect types.' });
+            res.status(400).json({ status: 'error', error: 'One or more items are missing required fields (panoId, clickedLat, clickedLng, actualLat, actualLng) or fields have incorrect types.' });
+            return;
         }
     }
 
@@ -75,7 +77,8 @@ app.post('/add', (req, res) => {
         db.run("BEGIN TRANSACTION;", function(beginErr) {
             if (beginErr) {
                 console.error("Transaction start error:", beginErr.message);
-                return res.status(500).json({ status: 'error', error: `Transaction start error: ${beginErr.message}` });
+                res.status(500).json({ status: 'error', error: `Transaction start error: ${beginErr.message}` });
+                return;
             }
 
             const stmt = db.prepare("INSERT INTO items (panoId, clickedLat, clickedLng, actualLat, actualLng, distance, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)");
@@ -88,7 +91,7 @@ app.post('/add', (req, res) => {
                 const { panoId, clickedLat, clickedLng, actualLat, actualLng } = item;
                 const distance = getDistance(clickedLat, clickedLng, actualLat, actualLng);
                 const timestamp = new Date().toISOString();
-                
+
                 // The callback for stmt.run is important for error handling within the loop
                 stmt.run(panoId, clickedLat, clickedLng, actualLat, actualLng, distance, timestamp, function(runErr) {
                     if (runErr) {
@@ -111,11 +114,13 @@ app.post('/add', (req, res) => {
                 if (errorOccurred) {
                     db.run("ROLLBACK;", (rollbackErr) => {
                         if (rollbackErr) {
-                             console.error("Rollback error:", rollbackErr.message);
-                             // Send a more comprehensive error message if rollback also fails
-                             return res.status(500).json({ status: 'error', error: `Transaction rollback failed: ${rollbackErr.message} after initial error: ${lastErrorMessage}` });
+                            console.error("Rollback error:", rollbackErr.message);
+                            // Send a more comprehensive error message if rollback also fails
+                            res.status(500).json({ status: 'error', error: `Transaction rollback failed: ${rollbackErr.message} after initial error: ${lastErrorMessage}` });
+                            return;
                         }
-                        return res.status(500).json({ status: 'error', error: lastErrorMessage });
+                        res.status(500).json({ status: 'error', error: lastErrorMessage });
+                        return;
                     });
                 } else {
                     db.run("COMMIT;", (commitErr) => {
@@ -126,9 +131,11 @@ app.post('/add', (req, res) => {
                             db.run("ROLLBACK;", (rbErrOnCommitFail) => {
                                 if (rbErrOnCommitFail) console.error("Rollback attempt after commit failure also failed:", rbErrOnCommitFail.message);
                             });
-                            return res.status(500).json({ status: 'error', error: `Transaction commit error: ${commitErr.message}` });
+                            res.status(500).json({ status: 'error', error: `Transaction commit error: ${commitErr.message}` });
+                            return;
                         }
-                        return res.json({ status: 'ok' });
+                        res.json({ status: 'ok' });
+                        return;
                     });
                 }
             });
@@ -147,21 +154,22 @@ app.get('/shortlist', (req, res) => {
             return;
         }
         rows.forEach(row => {
-          out.push([row.clickedLat, row.clickedLng]);
-        }); 
+            out.push([row.clickedLat, row.clickedLng]);
+        });
         res.json(out);
     });
 });
 // GET /list
 app.get('/list', (req, res) => {
-    const { id, min_distance, format } = req.query;
+    const { id, min_distance, format } = /** @type {Record<string, string>} */ (req.query);
     let query = "SELECT id, panoId, clickedLat, clickedLng, actualLat, actualLng, distance, timestamp FROM items";
     const params = [];
     const conditions = [];
 
     if (id !== undefined) {
         if (isNaN(parseInt(id))) {
-             return res.status(400).json({ status: 'error', error: 'Invalid id parameter. Must be an integer.' });
+            res.status(400).json({ status: 'error', error: 'Invalid id parameter. Must be an integer.' });
+            return;
         }
         conditions.push("id = ?");
         params.push(parseInt(id));
@@ -170,7 +178,8 @@ app.get('/list', (req, res) => {
     if (min_distance !== undefined) {
         const minDist = parseFloat(min_distance);
         if (isNaN(minDist)) {
-            return res.status(400).json({ status: 'error', error: 'Invalid min_distance parameter. Must be a number.' });
+            res.status(400).json({ status: 'error', error: 'Invalid min_distance parameter. Must be a number.' });
+            return;
         }
         conditions.push("distance > ?");
         params.push(minDist);
@@ -187,13 +196,13 @@ app.get('/list', (req, res) => {
             return;
         }
         if (format == "short") {
-        let out = [];
-        rows.forEach(row => {
-          out.push([row.clickedLat, row.clickedLng]);
-        }); 
-        res.json(out);
+            let out = [];
+            rows.forEach(row => {
+                out.push([row.clickedLat, row.clickedLng]);
+            });
+            res.json(out);
         } else {
-        res.json(rows);
+            res.json(rows);
         }
     });
 });
