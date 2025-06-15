@@ -381,7 +381,7 @@
                     }
                 });
             });
-            map.getSource('clickedPoints').setData(clickedPointsGeojson);
+            map.getSource('clickedPoints').setData(clickedPointsGeojson.data);
 
             const portals = await fetch(`${API_BASE_URL}/list?min_distance=.5&format=short`).then((res) => res.json());
             portals.forEach(([lat, lng]) => {
@@ -393,7 +393,7 @@
                     }
                 });
             });
-            map.getSource('clickedPortals').setData(clickedPortalsGeojson);
+            map.getSource('clickedPortals').setData(clickedPortalsGeojson.data);
         }
         async function loadLastStop() {
             const coordsElem = document.getElementById('mapCenterCoords')
