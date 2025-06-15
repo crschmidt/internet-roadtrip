@@ -336,7 +336,6 @@
             const urlParams = new URLSearchParams(window.location.search);
             const lat = urlParams.get('lat');
             const lng = urlParams.get('lng');
-            console.log(urlParams.get('lat'));
             let quiet = true;
             if (lat && lng) {
                 coordsElem.value = [lat, lng].join(",");
