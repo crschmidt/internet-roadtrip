@@ -192,6 +192,20 @@
                         'https://mts.googleapis.com/vt?pb=%211m4%211m3%211i{z}%212i{x}%213i{y}%212m8%211e2%212ssvv%214m2%211scc%212s%2A211m3%2A211e3%2A212b1%2A213e2%2A211m3%2A211e10%2A212b1%2A213e2%2A212b1%2A214b1%214m2%211ssvl%212s%2A212b1%213m16%212sen%213sUS%2112m4%211e68%212m2%211sset%212sRoadmap%2112m3%211e37%212m1%211ssmartmaps%2112m4%211e26%212m2%211sstyles%212ss.e%7Cp.c%3A%23ff0000%2Cs.e%3Ag.f%7Cp.c%3A%23bd5f1b%2Cs.e%3Ag.s%7Cp.c%3A%23f7ca9e%2C%215m1%215f2%0A'
                     ], 'tileSize': 256
                 });
+                map.addSource('tile-fill-source', {
+                    'type': 'geojson',
+                    'data': fill_data
+                });
+                map.addLayer(
+                {
+                    'id': 'tile-fill',
+                    'type': 'fill',
+                    'source': 'tile-fill-source',
+                    'paint': {
+                        'fill-opacity': 0.1
+                    }
+                }
+                )
                 map.addLayer(
                 {
                     'id': 'sv-tiles',
@@ -405,11 +419,52 @@
             addClickedPoint(lng, lat);
         }
 
+        // Right-click to find markers
+        fill_data = {
+            'type': 'FeatureCollection',
+            'features': []
+        };
+        // Helper functions for working with tiles
+        // Based on https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
+        function coords_from_tile(x, y, z) {
+            const n = 2**z
+            const lon_deg = x / n * 360.0 - 180.0
+            const lat_rad = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n)))
+            const lat_deg = lat_rad * 180.0 / Math.PI
+            return [lat_deg, lon_deg]
+        }
+        function tile_from_coords(lat, lng, z) {
+            const n = 2**z
+            const x = n * ((lng + 180) / 360)
+            const lat_rad = lat / 180 * Math.PI
+            const y = n * (1 - (Math.log(Math.tan(lat_rad) + 1/Math.cos(lat_rad)) / Math.PI)) / 2
+            return [Math.floor(x), Math.floor(y)]
+        }
         async function handleMapContext(e) {
             const { lng, lat } = e.lngLat;
             // This seems to be an ok heuristic to get the requested tile
             // to match what the user sees
             const z = Math.ceil(map.getZoom())+1;
+
+            // Draw a polygon matching the tile
+            const [x, y] = tile_from_coords(lat, lng, z);
+            const [lat1, lng1] = coords_from_tile(x, y, z);
+            const [lat2, lng2] = coords_from_tile(x+1, y+1, z);
+            const polygon = {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[
+                        [lng1, lat1],
+                        [lng2, lat1],
+                        [lng2, lat2],
+                        [lng1, lat2],
+                    ]]
+                },
+            }
+            fill_data.features.push(polygon);
+            map.getSource('tile-fill-source').setData(fill_data);
+
             // Fetch the panos at the right-clicked location and add them to the map
             const data = await fetch(
                 `https://irt.jdranczewski.dev/panos?lat=${lat}&lng=${lng}&z=${z}`
@@ -568,6 +623,8 @@
             clickMarkers.forEach(feature => {
                 if (feature.remove) feature.remove();
             });
+            fill_data.features = [];
+            map.getSource('tile-fill-source').setData(fill_data);
         }
         function clearResultFeatures() {
             resultFeatures.forEach(feature => {
