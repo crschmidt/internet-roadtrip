@@ -97,9 +97,10 @@
             color: red;
             font-weight: bold;
         }
-        .layers-control .layer-control {
-            display: block;
+        .custom-map-controls .toggle-control {
             padding: 0.2em;
+            display: flex;
+            align-items: flex-start;
         }
     </style>
 </head>
@@ -371,7 +372,7 @@
             const coordsElem = document.getElementById('coords');
             coordsElem.innerHTML = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
         }
-        
+
         function addClickedPoint(lng, lat) {
             if (clickedPoints.length >= MAX_CLICK_POINTS) {
                 updateStatus(`Maximum ${MAX_CLICK_POINTS} points reached.`, true);
@@ -660,7 +661,7 @@
                     "maplibregl-ctrl",
                     "maplibregl-ctrl-group",
                     // Custom class, see later
-                    "layers-control",
+                    "custom-map-controls",
                 );
                 // Might be cleaner to deep copy these instead
                 this._ctrls = ctrls;
@@ -677,7 +678,7 @@
             // Creates one checkbox and its label
             _createLabeledCheckbox(key, ctrl) {
                 let label = document.createElement("label");
-                label.classList.add("layer-control");
+                label.classList.add("toggle-control");
                 let text = document.createTextNode(ctrl.label);
                 let input = document.createElement("input");
                 this._inputs[key] = input;
