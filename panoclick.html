@@ -97,9 +97,10 @@
             color: red;
             font-weight: bold;
         }
-        .layers-control .layer-control {
-            display: block;
+        .custom-map-controls .toggle-control {
             padding: 0.2em;
+            display: flex;
+            align-items: flex-start;
         }
     </style>
 </head>
@@ -182,15 +183,25 @@
             map.on("load", function() {
                 map.addSource('sv', {
                     type: 'raster',
-                    'tiles': [
-                    'https://mts.googleapis.com/vt?pb=%211m4%211m3%211i{z}%212i{x}%213i{y}%212m8%211e2%212ssvv%214m2%211scc%212s*211m3*211e2*212b1*213e2*212b1*214b1%214m2%211ssvl%212s*212b1%213m11%212sen%213sUS%2112m4%211e68%212m2%211sset%212sRoadmap%2112m3%211e37%212m1%211ssmartmaps%215m1%215f2'],
-                    'tileSize': 256
+                    tiles: [
+                        'https://mts.googleapis.com/vt?pb=%211m4%211m3%211i{z}%212i{x}%213i{y}%212m8%211e2%212ssvv%214m2%211scc%212s*211m3*211e2*212b1*213e2*212b1*214b1%214m2%211ssvl%212s*212b1%213m11%212sen%213sUS%2112m4%211e68%212m2%211sset%212sRoadmap%2112m3%211e37%212m1%211ssmartmaps%215m1%215f2'
+                    ],
+                    tileSize: 256
                 });
                 map.addSource('ugc_sv', {
                     type: 'raster',
-                    'tiles': [
+                    tiles: [
                         'https://mts.googleapis.com/vt?pb=%211m4%211m3%211i{z}%212i{x}%213i{y}%212m8%211e2%212ssvv%214m2%211scc%212s%2A211m3%2A211e3%2A212b1%2A213e2%2A211m3%2A211e10%2A212b1%2A213e2%2A212b1%2A214b1%214m2%211ssvl%212s%2A212b1%213m16%212sen%213sUS%2112m4%211e68%212m2%211sset%212sRoadmap%2112m3%211e37%212m1%211ssmartmaps%2112m4%211e26%212m2%211sstyles%212ss.e%7Cp.c%3A%23ff0000%2Cs.e%3Ag.f%7Cp.c%3A%23bd5f1b%2Cs.e%3Ag.s%7Cp.c%3A%23f7ca9e%2C%215m1%215f2%0A'
-                    ], 'tileSize': 256
+                    ],
+                    tileSize: 256
+                });
+                map.addSource('tile-query-loading-source', {
+                    'type': 'geojson',
+                    'data': fill_data_loading
+                });
+                map.addSource('tile-query-done-source', {
+                    'type': 'geojson',
+                    'data': fill_data_done
                 });
                 map.addSource('tile-query-loading-source', {
                     'type': 'geojson',
@@ -223,108 +234,113 @@
                 )
                 map.addLayer(
                 {
-                    'id': 'sv-tiles',
-                    'type': 'raster',
-                    'source': 'sv',
-                    'minzoom': 0,
-                    'maxzoom': 22
+                    id: 'sv-tiles',
+                    type: 'raster',
+                    source: 'sv',
+                    minzoom: 0,
+                    maxzoom: 23
                 });
                 map.addLayer(
                 {
-                    'id': 'svugc-tiles',
-                    'type': 'raster',
-                    'source': 'ugc_sv',
-                    'minzoom': 0,
-                    'maxzoom': 22
+                    id: 'svugc-tiles',
+                    type: 'raster',
+                    source: 'ugc_sv',
+                    minzoom: 0,
+                    maxzoom: 23
                 });
+
+                addMapControls();
             });
             loadLastStop();
 
-            let label_to_layer_ids = {
-                'Official Streetview': ["sv-tiles"],
-                'Unofficial Streetview': ["svugc-tiles"],
-                'Clicked': ['points'],
-                'Portals': ['portals'],
-                'Queried tiles': ['tile-fill-done']
-            };
-            let layer_ctrls = Object.fromEntries(
-                Object.entries(label_to_layer_ids).map(([label, layer_ids]) => {
-                    const ctrl = {
-                        label,
-                        get initialValue() {
-                            // Check whether every layer is currently visible
-                            let is_visible = true;
-                            for (const layername of layer_ids) {
-                                is_visible =
-                                    is_visible &&
-                                    map.getLayoutProperty(layername, "visibility") !== "none";
+            function addMapControls() {
+                let label_to_layer_ids = {
+                    'Official Streetview': ["sv-tiles"],
+                    'Unofficial Streetview': ["svugc-tiles"],
+                    'Clicked': ['points'],
+                    'Portals': ['portals'],
+                    'Queried tiles': ['tile-fill-done']
+                };
+                let layer_ctrls = Object.fromEntries(
+                    Object.entries(label_to_layer_ids).map(([label, layer_ids]) => {
+                        const ctrl = {
+                            label,
+                            get initialValue() {
+                                // Check whether every layer is currently visible
+                                let is_visible = true;
+                                for (const layer_name of layer_ids) {
+                                    is_visible =
+                                        is_visible &&
+                                        map.getLayer(layer_name) != null &&
+                                        map.getLayoutProperty(layer_name, "visibility") !== "none";
+                                }
+                                return is_visible;
+                            },
+                            onChange(checked) {
+                                let visibility = checked ? "visible" : "none";
+                                for (const layer of layer_ids) {
+                                    map.setLayoutProperty(layer, "visibility", visibility);
+                                }
                             }
-                            return is_visible;
-                        },
+                        };
+
+                        return [label, ctrl];
+                    })
+                );
+
+                let hold_ctrl_to_move_ctrl;
+                {
+                    function lock() {
+                        map.getContainer().classList.add('locked');
+                        map.dragPan.disable();
+                    }
+                    function unlock() {
+                        map.getContainer().classList.remove('locked');
+                        map.dragPan.enable();
+                    }
+
+
+                    function handleKeydown(event) {
+                        if (event.altKey) {
+                            event.preventDefault();
+                            unlock();
+                        }
+                    }
+                    function handleKeyup(event) {
+                        if (!event.altKey) {
+                            event.preventDefault();
+                            lock();
+                        }
+                    }
+
+                    hold_ctrl_to_move_ctrl = {
+                        label: `Require holding Alt to move`,
+                        initialValue: false,
                         onChange(checked) {
-                            let visibility = checked ? "visible" : "none";
-                            for (const layer of layer_ids) {
-                                map.setLayoutProperty(layer, "visibility", visibility);
+                            if (checked) {
+                                lock();
+
+                                window.addEventListener('keydown', handleKeydown);
+                                window.addEventListener('keyup', handleKeyup);
+                            } else {
+                                unlock();
+
+                                window.removeEventListener('keydown', handleKeydown);
+                                window.removeEventListener('keyup', handleKeyup);
                             }
                         }
                     };
-
-                    return [label, ctrl];
-                })
-            );
-
-            let hold_ctrl_to_move_ctrl;
-            {
-                function lock() {
-                    map.getContainer().classList.add('locked');
-                    map.dragPan.disable();
-                }
-                function unlock() {
-                    map.getContainer().classList.remove('locked');
-                    map.dragPan.enable();
                 }
 
-
-                function handleKeydown(event) {
-                    if (event.altKey) {
-                        event.preventDefault();
-                        unlock();
-                    }
-                }
-                function handleKeyup(event) {
-                    if (!event.altKey) {
-                        event.preventDefault();
-                        lock();
-                    }
-                }
-
-                hold_ctrl_to_move_ctrl = {
-                    label: `Require holding Alt to move`,
-                    initialValue: false,
-                    onChange(checked) {
-                        if (checked) {
-                            lock();
-
-                            window.addEventListener('keydown', handleKeydown);
-                            window.addEventListener('keyup', handleKeyup);
-                        } else {
-                            unlock();
-
-                            window.removeEventListener('keydown', handleKeydown);
-                            window.removeEventListener('keyup', handleKeyup);
-                        }
-                    }
+                let map_ctrls = {
+                    ... layer_ctrls,
+                    hold_ctrl_to_move_ctrl
                 };
+
+                // Create control
+                let lc = new MapControls(map_ctrls);
+                map.addControl(lc);
             }
-
-            let map_ctrls = {
-                ... layer_ctrls,
-                hold_ctrl_to_move_ctrl
-            };
-
-            // Create control
-            let lc = new MapControls(map_ctrls);
-            map.addControl(lc);
         };
         async function loadClickedPoints() {
             let fc = {'type': 'FeatureCollection', 'features': []};
@@ -401,7 +417,7 @@
             const coordsElem = document.getElementById('coords');
             coordsElem.innerHTML = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
         }
-        
+
         function addClickedPoint(lng, lat) {
             if (clickedPoints.length >= MAX_CLICK_POINTS) {
                 updateStatus(`Maximum ${MAX_CLICK_POINTS} points reached.`, true);
@@ -743,7 +759,7 @@
                     "maplibregl-ctrl",
                     "maplibregl-ctrl-group",
                     // Custom class, see later
-                    "layers-control",
+                    "custom-map-controls",
                 );
                 // Might be cleaner to deep copy these instead
                 this._ctrls = ctrls;
@@ -760,7 +776,7 @@
             // Creates one checkbox and its label
             _createLabeledCheckbox(key, ctrl) {
                 let label = document.createElement("label");
-                label.classList.add("layer-control");
+                label.classList.add("toggle-control");
                 let text = document.createTextNode(ctrl.label);
                 let input = document.createElement("input");
                 this._inputs[key] = input;
