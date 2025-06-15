@@ -195,6 +195,35 @@
                     ],
                     tileSize: 256
                 });
+                map.addSource('tile-query-loading-source', {
+                    'type': 'geojson',
+                    'data': fill_data_loading
+                });
+                map.addSource('tile-query-done-source', {
+                    'type': 'geojson',
+                    'data': fill_data_done
+                });
+                map.addLayer(
+                {
+                    'id': 'tile-fill-loading',
+                    'type': 'fill',
+                    'source': 'tile-query-loading-source',
+                    'paint': {
+                        'fill-opacity': 0.1
+                    }
+                }
+                )
+                map.addLayer(
+                {
+                    'id': 'tile-fill-done',
+                    'type': 'fill',
+                    'source': 'tile-query-done-source',
+                    'paint': {
+                        'fill-color': '#00aa00',
+                        'fill-opacity': 0.075
+                    }
+                }
+                )
                 map.addLayer(
                 {
                     id: 'sv-tiles',
@@ -221,7 +250,8 @@
                     'Official Streetview': ["sv-tiles"],
                     'Unofficial Streetview': ["svugc-tiles"],
                     'Clicked': ['points'],
-                    'Portals': ['portals']
+                    'Portals': ['portals'],
+                    'Queried tiles': ['tile-fill-done']
                 };
                 let layer_ctrls = Object.fromEntries(
                     Object.entries(label_to_layer_ids).map(([label, layer_ids]) => {
@@ -413,11 +443,57 @@
             addClickedPoint(lng, lat);
         }
 
+        // Right-click to find markers
+        fill_data_loading = {
+            'type': 'FeatureCollection',
+            'features': []
+        };
+        fill_data_done = {
+            'type': 'FeatureCollection',
+            'features': []
+        };
+        // Helper functions for working with tiles
+        // Based on https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
+        function coords_from_tile(x, y, z) {
+            const n = 2**z
+            const lon_deg = x / n * 360.0 - 180.0
+            const lat_rad = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n)))
+            const lat_deg = lat_rad * 180.0 / Math.PI
+            return [lat_deg, lon_deg]
+        }
+        function tile_from_coords(lat, lng, z) {
+            const n = 2**z
+            const x = n * ((lng + 180) / 360)
+            const lat_rad = lat / 180 * Math.PI
+            const y = n * (1 - (Math.log(Math.tan(lat_rad) + 1/Math.cos(lat_rad)) / Math.PI)) / 2
+            return [Math.floor(x), Math.floor(y)]
+        }
         async function handleMapContext(e) {
             const { lng, lat } = e.lngLat;
             // This seems to be an ok heuristic to get the requested tile
             // to match what the user sees
-            const z = Math.ceil(map.getZoom())+1;
+            let z = Math.ceil(map.getZoom())+1;
+            if (z > 22) z = 22;
+
+            // Draw a polygon matching the tile
+            const [x, y] = tile_from_coords(lat, lng, z);
+            const [lat1, lng1] = coords_from_tile(x, y, z);
+            const [lat2, lng2] = coords_from_tile(x+1, y+1, z);
+            const polygon = {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[
+                        [lng1, lat1],
+                        [lng2, lat1],
+                        [lng2, lat2],
+                        [lng1, lat2],
+                    ]]
+                },
+            }
+            fill_data_loading.features.push(polygon);
+            map.getSource('tile-query-loading-source').setData(fill_data_loading);
+
             // Fetch the panos at the right-clicked location and add them to the map
             const data = await fetch(
                 `https://irt.jdranczewski.dev/panos?lat=${lat}&lng=${lng}&z=${z}`
@@ -428,6 +504,12 @@
                 addClickedPoint(point[1], point[0]);
             })
             updateStatus(`Points from tile added. Click 'Execute' to search.`);
+            fill_data_loading.features = fill_data_loading.features.filter((f_p) => {
+                return f_p !== polygon;
+            });
+            fill_data_done.features.push(polygon);
+            map.getSource('tile-query-done-source').setData(fill_data_done);
+            map.getSource('tile-query-loading-source').setData(fill_data_loading);
         }
 
         // Handle map resize
@@ -576,6 +658,8 @@
             clickMarkers.forEach(feature => {
                 if (feature.remove) feature.remove();
             });
+            fill_data_done.features = [];
+            map.getSource('tile-query-done-source').setData(fill_data_done);
         }
         function clearResultFeatures() {
             resultFeatures.forEach(feature => {
