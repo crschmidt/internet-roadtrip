@@ -545,28 +545,57 @@
             const mapResizeEl = document.querySelector('#map-resize');
 
             let resizingState = null;
-            let isResizing = false;
-            let startMapSize = null;
-            let startMouseY = null;
-
             mapResizeEl.addEventListener('mousedown', (event) => {
                 resizingState = {
-                    startMouseY: event.screenY,
+                    startScreenY: event.screenY,
+                    startMapHeight: mapContainerEl.getBoundingClientRect().height
+                };
+            });
+            mapResizeEl.addEventListener('touchstart', (event) => {
+                const touch = event.changedTouches[0];
+                resizingState = {
+                    touchIdentifier: touch.identifier,
+                    startScreenY: touch.screenY,
                     startMapHeight: mapContainerEl.getBoundingClientRect().height
                 };
             });
 
-            window.addEventListener('mousemove', () => {
+            function handleMove(newScreenY) {
                 if (resizingState == null) return;
 
-                const newHeight = resizingState.startMapHeight + (event.screenY - resizingState.startMouseY);
+                const newHeight = resizingState.startMapHeight + (newScreenY - resizingState.startScreenY);
                 mapContainerEl.style.height = `${newHeight}px`;
 
                 map.resize();
+            }
+            window.addEventListener('mousemove', (event) => {
+                if (resizingState == null) return;
+
+                handleMove(event.screenY);
+            })
+            window.addEventListener('touchmove', (event) => {
+                if (resizingState == null || resizingState.touchIdentifier == null) return;
+
+                const touch = Array.from(event.changedTouches).find(({ identifier }) => resizingState.touchIdentifier);
+                // Touch that moved wasn't the one used for resizing
+                if (!touch) return;
+
+                handleMove(touch.screenY);
             });
 
-            window.addEventListener('mouseup', () => {
+            function handleEnd() {
                 resizingState = null;
+            }
+            window.addEventListener('mouseup', handleEnd);
+            window.addEventListener('touchend', (event) => {
+                if (
+                    resizingState == null ||
+                    resizingState.touchIdentifier == null ||
+                    // Lifted up touch wasn't the one used for resizing
+                    !Array.from(event.changedTouches).some(({ identifier }) => identifier === resizingState.touchIdentifier)
+                ) return;
+
+                handleEnd();
             });
         }
 
