@@ -164,6 +164,20 @@
         const mapContainerEl = document.querySelector('#map');
         let map;
         let clickedPoints = [];
+        let clickedPointsGeojson = {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features: []
+            }
+        };
+        let clickedPortalsGeojson = {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features: []
+            }
+        };
         let clickMarkers = []; // Markers for user clicks
         let resultFeatures = []; // Markers and lines from search results
         let processedPointCount = 0;
@@ -239,6 +253,28 @@
                     source: 'ugc_sv',
                     minzoom: 0,
                     maxzoom: 23
+                });
+
+                map.addSource('clickedPoints', clickedPointsGeojson);
+                map.addLayer({
+                    id: 'points',
+                    type: 'circle',
+                    source: 'clickedPoints',
+                    paint: {
+                        'circle-radius': 4,
+                        'circle-color': '#00ff00' // Green color
+                    }
+                });
+
+                map.addSource('clickedPortals', clickedPortalsGeojson);
+                map.addLayer({
+                    id: 'portals',
+                    type: 'circle',
+                    source: 'clickedPortals',
+                    paint: {
+                        'circle-radius': 6,
+                        'circle-color': '#0000ff' // Blue color
+                    }
                 });
 
                 addMapControls();
@@ -335,39 +371,29 @@
             }
         };
         async function loadClickedPoints() {
-            let fc = {'type': 'FeatureCollection', 'features': []};
-            const data = await fetch(`${API_BASE_URL}/shortlist`).then((res) => res.json());
-            data.forEach(item => {
-                fc.features.push({'type':'Feature', 'geometry': {'type':'Point', 'coordinates': [item[1], item[0]]}});
+            const points = await fetch(`${API_BASE_URL}/shortlist`).then((res) => res.json());
+            points.forEach(([lat, lng]) => {
+                clickedPointsGeojson.data.features.push({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [lng, lat]
+                    }
+                });
             });
-            map.addSource('clickedPoints', {'type':'geojson',
-            data:fc});
-            map.addLayer({
-                id: 'points',
-                type: 'circle',
-                source: 'clickedPoints',
-                paint: {
-                    'circle-radius': 4,
-                    'circle-color': '#00ff00' // Green color
-                }
-            });
+            map.getSource('clickedPoints').setData(clickedPointsGeojson);
 
-            let fc2 = {'type': 'FeatureCollection', 'features': []};
-            const data2 = await fetch(`${API_BASE_URL}/list?min_distance=.5&format=short`).then((res) => res.json());
-            data2.forEach(item => {
-                fc2.features.push({ 'type': 'Feature', 'geometry': { 'type': 'Point', 'coordinates': [item[1], item[0]] } });
+            const portals = await fetch(`${API_BASE_URL}/list?min_distance=.5&format=short`).then((res) => res.json());
+            portals.forEach(([lat, lng]) => {
+                clickedPortalsGeojson.data.features.push({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [lng, lat]
+                    }
+                });
             });
-            map.addSource('clickedPortals', { 'type': 'geojson', data: fc2 });
-            map.addLayer({
-                id: 'portals',
-                type: 'circle',
-                source: 'clickedPortals',
-                paint: {
-                    'circle-radius': 6,
-                    'circle-color': '#0000ff' // Green color
-                }
-            });
-
+            map.getSource('clickedPortals').setData(clickedPortalsGeojson);
         }
         async function loadLastStop() {
             const coordsElem = document.getElementById('mapCenterCoords')
