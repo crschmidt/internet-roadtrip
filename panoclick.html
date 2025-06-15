@@ -702,6 +702,13 @@
             const tableBody = document.getElementById('resultsTable').getElementsByTagName('tbody')[0];
             //tableBody.innerHTML = ''; // Clear existing rows
 
+            const distanceNumberFormat = new Intl.NumberFormat(navigator.language, {
+                style: 'decimal',
+                notation: 'standard',
+                maximumFractionDigits: 2,
+                minimumFractionDigits: 2
+            });
+
             results.forEach((res, index) => {
                 // Add to table only if distance is long
                 if (res.distance > 0) { //DISTANCE_THRESHOLD_LONG) {
@@ -712,7 +719,7 @@
                     row.insertCell().textContent = res.clickedLng.toFixed(6);
                     row.insertCell().textContent = res.actualLat.toFixed(6);
                     row.insertCell().textContent = res.actualLng.toFixed(6);
-                    row.insertCell().textContent = res.distance.toFixed(2);
+                    row.insertCell().textContent = distanceNumberFormat.format(res.distance);
                 }
 
                 // Add markers and lines to map
