@@ -207,6 +207,10 @@ app.get('/list', (req, res) => {
     });
 });
 
+app.get('/db', (_req, res) => {
+    res.download(dbFile);
+});
+
 // --- Start Server ---
 app.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`);
