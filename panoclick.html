@@ -278,12 +278,10 @@
             map.on('move', handleMove);
             map.on('click', handleMapClick);
             map.on('contextmenu', handleMapContext);
-            map.on("load", function() {
-                addMapControls();
-            });
             loadLastStop();
 
-            function addMapControls() {
+            // Add map controls
+            {
                 let label_to_layer_ids = {
                     'Official Streetview': ["sv-tiles"],
                     'Unofficial Streetview': ["svugc-tiles"],
