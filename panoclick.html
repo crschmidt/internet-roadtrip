@@ -565,8 +565,6 @@
 
                 const newHeight = resizingState.startMapHeight + (newScreenY - resizingState.startScreenY);
                 mapContainerEl.style.height = `${newHeight}px`;
-
-                map.resize();
             }
             window.addEventListener('mousemove', (event) => {
                 if (resizingState == null) return;
@@ -585,6 +583,8 @@
 
             function handleEnd() {
                 resizingState = null;
+
+                map.resize();
             }
             window.addEventListener('mouseup', handleEnd);
             window.addEventListener('touchend', (event) => {
