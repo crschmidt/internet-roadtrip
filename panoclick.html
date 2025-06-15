@@ -497,21 +497,6 @@
             }
         }
 
-        async function getStreetViewMetadata(panoId, apiKey, sessionKey) {
-            const url = `${METADATA_API_URL}?session=${sessionKey}&key=${apiKey}&panoId=${panoId}`;
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    console.error(`Error fetching metadata for ${panoId}: ${response.statusText}`);
-                    return null;
-                }
-                return await response.json();
-            } catch (error) {
-                console.error(`Network error fetching metadata for ${panoId}:`, error);
-                return null;
-            }
-        }
-
         async function processClickedPoints() {
             const searchParams = new URLSearchParams(location.search);
 
