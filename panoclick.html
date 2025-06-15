@@ -402,13 +402,11 @@
         }
 
         function handleMapClick(e) {
-            console.log(e);
             const { lng, lat } = e.lngLat;
             addClickedPoint(lng, lat);
         }
 
         async function handleMapContext(e) {
-            console.log(e);
             const { lng, lat } = e.lngLat;
             // This seems to be an ok heuristic to get the requested tile
             // to match what the user sees
