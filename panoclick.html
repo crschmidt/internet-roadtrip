@@ -192,17 +192,32 @@
                         'https://mts.googleapis.com/vt?pb=%211m4%211m3%211i{z}%212i{x}%213i{y}%212m8%211e2%212ssvv%214m2%211scc%212s%2A211m3%2A211e3%2A212b1%2A213e2%2A211m3%2A211e10%2A212b1%2A213e2%2A212b1%2A214b1%214m2%211ssvl%212s%2A212b1%213m16%212sen%213sUS%2112m4%211e68%212m2%211sset%212sRoadmap%2112m3%211e37%212m1%211ssmartmaps%2112m4%211e26%212m2%211sstyles%212ss.e%7Cp.c%3A%23ff0000%2Cs.e%3Ag.f%7Cp.c%3A%23bd5f1b%2Cs.e%3Ag.s%7Cp.c%3A%23f7ca9e%2C%215m1%215f2%0A'
                     ], 'tileSize': 256
                 });
-                map.addSource('tile-fill-source', {
+                map.addSource('tile-query-loading-source', {
                     'type': 'geojson',
-                    'data': fill_data
+                    'data': fill_data_loading
+                });
+                map.addSource('tile-query-done-source', {
+                    'type': 'geojson',
+                    'data': fill_data_done
                 });
                 map.addLayer(
                 {
-                    'id': 'tile-fill',
+                    'id': 'tile-fill-loading',
                     'type': 'fill',
-                    'source': 'tile-fill-source',
+                    'source': 'tile-query-loading-source',
                     'paint': {
                         'fill-opacity': 0.1
+                    }
+                }
+                )
+                map.addLayer(
+                {
+                    'id': 'tile-fill-done',
+                    'type': 'fill',
+                    'source': 'tile-query-done-source',
+                    'paint': {
+                        'fill-color': '#00aa00',
+                        'fill-opacity': 0.075
                     }
                 }
                 )
@@ -229,7 +244,8 @@
                 'Official Streetview': ["sv-tiles"],
                 'Unofficial Streetview': ["svugc-tiles"],
                 'Clicked': ['points'],
-                'Portals': ['portals']
+                'Portals': ['portals'],
+                'Queried tiles': ['tile-fill-done']
             };
             let layer_ctrls = Object.fromEntries(
                 Object.entries(label_to_layer_ids).map(([label, layer_ids]) => {
@@ -420,7 +436,11 @@
         }
 
         // Right-click to find markers
-        fill_data = {
+        fill_data_loading = {
+            'type': 'FeatureCollection',
+            'features': []
+        };
+        fill_data_done = {
             'type': 'FeatureCollection',
             'features': []
         };
@@ -462,8 +482,8 @@
                     ]]
                 },
             }
-            fill_data.features.push(polygon);
-            map.getSource('tile-fill-source').setData(fill_data);
+            fill_data_loading.features.push(polygon);
+            map.getSource('tile-query-loading-source').setData(fill_data_loading);
 
             // Fetch the panos at the right-clicked location and add them to the map
             const data = await fetch(
@@ -475,6 +495,12 @@
                 addClickedPoint(point[1], point[0]);
             })
             updateStatus(`Points from tile added. Click 'Execute' to search.`);
+            fill_data_loading.features = fill_data_loading.features.filter((f_p) => {
+                return f_p !== polygon;
+            });
+            fill_data_done.features.push(polygon);
+            map.getSource('tile-query-done-source').setData(fill_data_done);
+            map.getSource('tile-query-loading-source').setData(fill_data_loading);
         }
 
         // Handle map resize
@@ -623,8 +649,8 @@
             clickMarkers.forEach(feature => {
                 if (feature.remove) feature.remove();
             });
-            fill_data.features = [];
-            map.getSource('tile-fill-source').setData(fill_data);
+            fill_data_done.features = [];
+            map.getSource('tile-query-done-source').setData(fill_data_done);
         }
         function clearResultFeatures() {
             resultFeatures.forEach(feature => {
