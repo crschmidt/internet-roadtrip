@@ -209,93 +209,98 @@
                     'minzoom': 0,
                     'maxzoom': 22
                 });
+
+                addMapControls();
             });
             loadLastStop();
 
-            let label_to_layer_ids = {
-                'Official Streetview': ["sv-tiles"],
-                'Unofficial Streetview': ["svugc-tiles"],
-                'Clicked': ['points'],
-                'Portals': ['portals']
-            };
-            let layer_ctrls = Object.fromEntries(
-                Object.entries(label_to_layer_ids).map(([label, layer_ids]) => {
-                    const ctrl = {
-                        label,
-                        get initialValue() {
-                            // Check whether every layer is currently visible
-                            let is_visible = true;
-                            for (const layername of layer_ids) {
-                                is_visible =
-                                    is_visible &&
-                                    map.getLayoutProperty(layername, "visibility") !== "none";
+            function addMapControls() {
+                let label_to_layer_ids = {
+                    'Official Streetview': ["sv-tiles"],
+                    'Unofficial Streetview': ["svugc-tiles"],
+                    'Clicked': ['points'],
+                    'Portals': ['portals']
+                };
+                let layer_ctrls = Object.fromEntries(
+                    Object.entries(label_to_layer_ids).map(([label, layer_ids]) => {
+                        const ctrl = {
+                            label,
+                            get initialValue() {
+                                // Check whether every layer is currently visible
+                                let is_visible = true;
+                                for (const layer_name of layer_ids) {
+                                    is_visible =
+                                        is_visible &&
+                                        map.getLayer(layer_name) != null &&
+                                        map.getLayoutProperty(layer_name, "visibility") !== "none";
+                                }
+                                return is_visible;
+                            },
+                            onChange(checked) {
+                                let visibility = checked ? "visible" : "none";
+                                for (const layer of layer_ids) {
+                                    map.setLayoutProperty(layer, "visibility", visibility);
+                                }
                             }
-                            return is_visible;
-                        },
+                        };
+
+                        return [label, ctrl];
+                    })
+                );
+
+                let hold_ctrl_to_move_ctrl;
+                {
+                    function lock() {
+                        map.getContainer().classList.add('locked');
+                        map.dragPan.disable();
+                    }
+                    function unlock() {
+                        map.getContainer().classList.remove('locked');
+                        map.dragPan.enable();
+                    }
+
+
+                    function handleKeydown(event) {
+                        if (event.altKey) {
+                            event.preventDefault();
+                            unlock();
+                        }
+                    }
+                    function handleKeyup(event) {
+                        if (!event.altKey) {
+                            event.preventDefault();
+                            lock();
+                        }
+                    }
+
+                    hold_ctrl_to_move_ctrl = {
+                        label: `Require holding Alt to move`,
+                        initialValue: false,
                         onChange(checked) {
-                            let visibility = checked ? "visible" : "none";
-                            for (const layer of layer_ids) {
-                                map.setLayoutProperty(layer, "visibility", visibility);
+                            if (checked) {
+                                lock();
+
+                                window.addEventListener('keydown', handleKeydown);
+                                window.addEventListener('keyup', handleKeyup);
+                            } else {
+                                unlock();
+
+                                window.removeEventListener('keydown', handleKeydown);
+                                window.removeEventListener('keyup', handleKeyup);
                             }
                         }
                     };
-
-                    return [label, ctrl];
-                })
-            );
-
-            let hold_ctrl_to_move_ctrl;
-            {
-                function lock() {
-                    map.getContainer().classList.add('locked');
-                    map.dragPan.disable();
-                }
-                function unlock() {
-                    map.getContainer().classList.remove('locked');
-                    map.dragPan.enable();
                 }
 
-
-                function handleKeydown(event) {
-                    if (event.altKey) {
-                        event.preventDefault();
-                        unlock();
-                    }
-                }
-                function handleKeyup(event) {
-                    if (!event.altKey) {
-                        event.preventDefault();
-                        lock();
-                    }
-                }
-
-                hold_ctrl_to_move_ctrl = {
-                    label: `Require holding Alt to move`,
-                    initialValue: false,
-                    onChange(checked) {
-                        if (checked) {
-                            lock();
-
-                            window.addEventListener('keydown', handleKeydown);
-                            window.addEventListener('keyup', handleKeyup);
-                        } else {
-                            unlock();
-
-                            window.removeEventListener('keydown', handleKeydown);
-                            window.removeEventListener('keyup', handleKeyup);
-                        }
-                    }
+                let map_ctrls = {
+                    ... layer_ctrls,
+                    hold_ctrl_to_move_ctrl
                 };
+
+                // Create control
+                let lc = new MapControls(map_ctrls);
+                map.addControl(lc);
             }
-
-            let map_ctrls = {
-                ... layer_ctrls,
-                hold_ctrl_to_move_ctrl
-            };
-
-            // Create control
-            let lc = new MapControls(map_ctrls);
-            map.addControl(lc);
         };
         async function loadClickedPoints() {
             let fc = {'type': 'FeatureCollection', 'features': []};
