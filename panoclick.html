@@ -472,7 +472,8 @@
             const { lng, lat } = e.lngLat;
             // This seems to be an ok heuristic to get the requested tile
             // to match what the user sees
-            const z = Math.ceil(map.getZoom())+1;
+            let z = Math.ceil(map.getZoom())+1;
+            if (z > 22) z = 22;
 
             // Draw a polygon matching the tile
             const [x, y] = tile_from_coords(lat, lng, z);
