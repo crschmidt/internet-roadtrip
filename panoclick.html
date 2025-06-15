@@ -485,6 +485,21 @@
             return await response.json();
         }
 
+        async function getStreetViewMetadataLatLng(lat, lng, apiKey, sessionKey) {
+            const url = `${METADATA_API_URL}?session=${sessionKey}&key=${apiKey}&lat=${lat}&lng=${lng}&radius=${SEARCH_RADIUS_M}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    console.error(`Error fetching metadata for ${panoId}: ${response.statusText}`);
+                    return null;
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`Network error fetching metadata for ${panoId}:`, error);
+                return null;
+            }
+        }
+
         async function getStreetViewMetadata(panoId, apiKey, sessionKey) {
             const url = `${METADATA_API_URL}?session=${sessionKey}&key=${apiKey}&panoId=${panoId}`;
             try {
@@ -528,63 +543,36 @@
             let foundPanosCount = 0;
             const currentRunResults = [];
 
-            let locations = [];
             for (let i = 0; i < pointsToQuery.length; i++) {
-                const point = pointsToQuery[i];
+                try {
+                    const point = pointsToQuery[i];
+                    updateStatus(`Querying point ${i + 1}/${pointsToQuery.length}...`);
 
-                locations.push({ lat: point.lat, lng: point.lng })
-            }
-            const panoRequestPayload = {
-                locations: locations,
-                radius: SEARCH_RADIUS_M
-            };
-
-            try {
-                const panoResponse = await fetch(`${PANO_IDS_API_URL}?session=${sessionKey}&key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(panoRequestPayload)
-                });
-
-                if (!panoResponse.ok) {
-                    console.warn(`PanoID API error for point ${i+1}: ${panoResponse.statusText}`);
-                    return;
-                }
-                const panoData = await panoResponse.json();
-
-                if (panoData.panoIds && panoData.panoIds.length > 0) {
-                    for (let i = 0; i < panoData.panoIds.length; i++) {
-                        updateStatus(`Querying point ${i + 1}/${clickedPoints.length}...`);
-                        const panoId = panoData.panoIds[i];
-
-                        if (!panoId.startsWith('CAoS')) {
-                            console.log(`Skipping non-CAoS panoId: ${panoId} for point ${i+1}`);
-                            continue; // Skip non-CAoS panos
+                    const metadata = await getStreetViewMetadataLatLng(point.lat, point.lng, apiKey, sessionKey);
+                    if (metadata && metadata.lat && metadata.lng) {
+                        if (!metadata.panoId.startsWith('CAoS')) {
+                          console.log("Skipping pano", metadata.panoId);
+                          continue;
                         }
+                        const actualLat = metadata.lat;
+                        const actualLng = metadata.lng;
+                        const distance = haversineDistance(point.lat, point.lng, actualLat, actualLng);
 
-                        const metadata = await getStreetViewMetadata(panoId, apiKey, sessionKey);
-                        if (metadata && metadata.lat && metadata.lng) {
-                            const actualLat = metadata.lat;
-                            const actualLng = metadata.lng;
-                            const distance = haversineDistance(locations[i].lat, locations[i].lng, actualLat, actualLng);
-
-                            //allResults.push({
-                            currentRunResults.push({
-                                panoId,
-                                clickedLat: locations[i].lat,
-                                clickedLng: locations[i].lng,
-                                actualLat,
-                                actualLng,
-                                distance
-                            });
-                            foundPanosCount++;
-                        } else {
-                            console.warn(`Could not get metadata for CAoS panoId: ${panoId}`);
-                        }
+                        currentRunResults.push({
+                            panoId: metadata.panoId,
+                            clickedLat: point.lat,
+                            clickedLng: point.lng,
+                            actualLat,
+                            actualLng,
+                            distance
+                        });
+                        foundPanosCount++;
+                    } else {
+                        console.warn(`Could not get metadata for pano location ${point.lat}, ${point.lng}`);
                     }
+                } catch (error) {
+                    console.error(`Error processing point ${i + 1}:`, error);
                 }
-            } catch (error) {
-                console.error(`Error processing point ${i + 1}:`, error);
             }
             saveToServer(currentRunResults);
             updateTableAndMap(currentRunResults);
