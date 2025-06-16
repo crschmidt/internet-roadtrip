@@ -7,8 +7,8 @@ const port = 8081;
 const dbFile = './data.sqlite'; // Database file will be created in the same directory
 
 // Middleware
+app.use(express.json({limit: "50mb"}));
 app.use(cors()); // Enable CORS for all origins
-app.use(express.json()); // Parse JSON request bodies
 
 // --- Database Setup ---
 const db = new sqlite3.Database(dbFile, (err) => {
@@ -161,7 +161,7 @@ app.get('/shortlist', (req, res) => {
 });
 // GET /list
 app.get('/list', (req, res) => {
-    const { id, min_distance, format } = /** @type {Record<string, string>} */ (req.query);
+    const { id, min_distance, format, min_lat, max_lat, min_lng, max_lng } = /** @type {Record<string, string>} */ (req.query);
     let query = "SELECT id, panoId, clickedLat, clickedLng, actualLat, actualLng, distance, timestamp FROM items";
     const params = [];
     const conditions = [];
@@ -174,6 +174,43 @@ app.get('/list', (req, res) => {
         conditions.push("id = ?");
         params.push(parseInt(id));
     }
+
+    if (min_lat !== undefined) {
+      const minLat = parseFloat(min_lat);
+      if (isNaN(minLat)) {
+          res.status(400).json({ status: 'error', error: 'Invalid min_distance parameter. Must be a number.' });
+          return;
+      }
+      conditions.push("clickedLat > ?");
+      params.push(minLat);
+   }
+    if (min_lng !== undefined) {
+      const minLng = parseFloat(min_lng);
+      if (isNaN(minLng)) {
+          res.status(400).json({ status: 'error', error: 'Invalid min_distance parameter. Must be a number.' });
+          return;
+      }
+      conditions.push("clickedLat > ?");
+      params.push(minLng);
+   }
+    if (max_lat !== undefined) {
+      const maxLat = parseFloat(max_lat);
+      if (isNaN(maxLat)) {
+          res.status(400).json({ status: 'error', error: 'Invalid max_distance parameter. Must be a number.' });
+          return;
+      }
+      conditions.push("clickedLat < ?");
+      params.push(maxLat);
+   }
+    if (max_lng !== undefined) {
+      const maxLng = parseFloat(max_lng);
+      if (isNaN(maxLng)) {
+          res.status(400).json({ status: 'error', error: 'Invalid max_distance parameter. Must be a number.' });
+          return;
+      }
+      conditions.push("clickedLat < ?");
+      params.push(maxLng);
+   }
 
     if (min_distance !== undefined) {
         const minDist = parseFloat(min_distance);
