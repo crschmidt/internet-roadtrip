@@ -108,7 +108,7 @@
 
     <div class="controls-container">
         <div class="control-group">
-            <label for="mapCenterCoords">Map Center (Lat,Lng):</label>
+            <label for="mapCenterCoords">Map Center:</label>
             <input type="text" id="mapCenterCoords" value="">
         </div>
         <div class="control-group">
@@ -117,11 +117,11 @@
         </div>
         <div class="control-group">
             <label>&nbsp;</label> <!-- Spacer for alignment -->
-            <button id="executeButton" onclick="processClickedPoints()">Execute Search on Clicked Points</button>
+            <button id="executeButton" onclick="processClickedPoints()">Search</button>
         </div>
         <div class="control-group">
             <label>&nbsp;</label> <!-- Spacer for alignment -->
-            <button id="clearButton" onclick="clearMap()">Clear Map</button>
+            <button id="clearButton" onclick="clearMap()">Clear</button>
         </div>
 
         <div class="control-group">
@@ -678,6 +678,10 @@
                     updateStatus(`Querying point ${i + 1}/${pointsToQuery.length}...`);
 
                     const metadata = await getStreetViewMetadataLatLng(point.lat, point.lng, apiKey, sessionKey);
+                    if (metadata && (metadata.lat == 0) && (metadata.lng ==0)) {
+                        metadata.lat=point.lat;
+                        metadata.lng=point.lng;
+                    }
                     if (metadata && metadata.lat && metadata.lng) {
                         if (!metadata.panoId.startsWith('CAoS')) {
                           console.log("Skipping pano", metadata.panoId);
