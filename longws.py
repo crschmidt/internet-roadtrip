@@ -4,6 +4,7 @@ import time
 import json
 import rel
 from google.cloud import bigquery
+from google.oauth2 import service_account
 import uuid
 import logging
 
@@ -15,9 +16,13 @@ TABLE_ID = "stops"  # Replace with your BigQuery table ID
 
 stop = 0
 prev = None
+credentials = service_account.Credentials.from_service_account_file(
+    './key.json',
+    scopes=["https://www.googleapis.com/auth/cloud-platform"],
+)
 
 # Initialize BigQuery client
-client = bigquery.Client(project=PROJECT_ID)
+client = bigquery.Client(project=PROJECT_ID, credentials=credentials)
 dataset_ref = client.dataset(DATASET_ID)
 table_ref = dataset_ref.table(TABLE_ID)
 table = client.get_table(table_ref) if client.get_table(table_ref) else None
