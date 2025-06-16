@@ -157,6 +157,7 @@
         const METADATA_API_URL = "https://tile.googleapis.com/v1/streetview/metadata";
         const PANO_IDS_API_URL = "https://tile.googleapis.com/v1/streetview/panoIds";
         const API_BASE_URL = new URLSearchParams(location.search).get('apiBaseUrl') || '/serve';
+        let showYellow = new URLSearchParams(location.search).get('showYellow') == '1';
         const MAX_CLICK_POINTS = 10000;
         const SEARCH_RADIUS_M = 10;
         const DISTANCE_THRESHOLD_LONG = 10; // Meters for "long" distance
@@ -362,11 +363,23 @@
                             }
                         }
                     };
+                    show_yellow_markers = {
+                        label: `Show short-distance markers`,
+                        initialValue: false,
+                        onChange(checked) {
+                            if (checked) {
+                              showYellow=true;
+                            } else {
+                                showYellow=false;
+                            }
+                        }
+                    };
                 }
 
                 let map_ctrls = {
                     ... layer_ctrls,
-                    hold_ctrl_to_move_ctrl
+                    hold_ctrl_to_move_ctrl,
+                    show_yellow_markers
                 };
 
                 // Create control
@@ -505,7 +518,6 @@
             return [Math.floor(x), Math.floor(y)]
         }
         async function handleMapContext(e) {
-            debugger;
             const { lng, lat } = e.lngLat;
             // This seems to be an ok heuristic to get the requested tile
             // to match what the user sees
@@ -637,7 +649,9 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(results)
             });
-            return await response.json();
+            const resp = await response.json();
+            loadClickedPoints();
+            return resp;
         }
 
         async function getStreetViewMetadataLatLng(lat, lng, apiKey, sessionKey) {
@@ -755,7 +769,7 @@
 
             results.forEach((res, index) => {
                 // Add to table only if distance is long
-                if (res.distance > 0) { //DISTANCE_THRESHOLD_LONG) {
+                if (res.distance > DISTANCE_THRESHOLD_LONG || showYellow) {
                     const row = tableBody.insertRow(0);
                     row.insertCell().innerHTML = `<a href="/panoclick.html?lat=${res.clickedLat.toFixed(6)}&lng=${res.clickedLng.toFixed(6)}&pano=${res.panoId}">link</a>`;
                     row.insertCell().innerHTML = `<a href="/pano.html?pano=${res.panoId}">${res.panoId}</a>`;
@@ -813,13 +827,17 @@
                         resultFeatures.push(lineId); // Store ID to remove layer/source later
                     }
                 }
-
-                // Marker at clicked location (yellow or blue)
-                const clickedResultMarker = new maplibregl.Marker({ color: clickedMarkerColor })
-                    .setLngLat([res.actualLng, res.actualLat])
-                    .setPopup(new maplibregl.Popup().setHTML(`Clicked for: ${res.panoId}<br>${res.actualLat.toFixed(5)}, ${res.actualLng.toFixed(5)}<br>Dist: ${res.distance.toFixed(1)}m`))
-                    .addTo(map);
-                resultFeatures.push(clickedResultMarker);
+                if (showYellow || clickedMarkerColor == '#0000FF') {
+                    // Marker at clicked location (yellow or blue)
+                    const clickedResultMarker = new maplibregl.Marker({ color: clickedMarkerColor })
+                        .setLngLat([res.actualLng, res.actualLat])
+                        .setPopup(new maplibregl.Popup().setHTML(`Clicked for: ${res.panoId}<br>${res.actualLat.toFixed(5)}, ${res.actualLng.toFixed(5)}<br>Dist: ${res.distance.toFixed(1)}m`))
+                        .addTo(map);
+                    resultFeatures.push(clickedResultMarker);
+                }
+            });
+            clickMarkers.forEach(feature => {
+                if (feature.remove) feature.remove();
             });
         }
         class MapControls {
