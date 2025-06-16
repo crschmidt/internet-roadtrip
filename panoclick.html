@@ -585,6 +585,8 @@
             });
 
             function handleEnd() {
+                if (resizingState != null) return;
+
                 resizingState = null;
 
                 map.resize();
