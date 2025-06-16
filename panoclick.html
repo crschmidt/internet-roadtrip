@@ -277,7 +277,7 @@
             map.addControl(new maplibregl.NavigationControl({
                 visualizePitch: true
             }));
-            map.on('move', handleMove);
+            map.on('moveend', handleMoveEnd);
             map.on('click', handleMapClick);
             map.on('contextmenu', handleMapContext);
             map.on("load", function() {
@@ -375,7 +375,9 @@
             }
         };
         async function loadClickedPoints() {
-            const points = await fetch(`${API_BASE_URL}/shortlist`).then((res) => res.json());
+            clickedPointsGeojson.data.features = [];
+            const bounds = map.getBounds();
+            const points = await fetch(`${API_BASE_URL}/list?format=short&min_lat=${bounds.getSouth()}&min_lng=${bounds.getWest()}&max_lat=${bounds.getNorth()}&max_lng=${bounds.getEast()}`).then((res) => res.json());
             points.forEach(([lat, lng]) => {
                 clickedPointsGeojson.data.features.push({
                     type: 'Feature',
@@ -387,17 +389,19 @@
             });
             map.getSource('clickedPoints').setData(clickedPointsGeojson.data);
 
-            const portals = await fetch(`${API_BASE_URL}/list?min_distance=.5&format=short`).then((res) => res.json());
-            portals.forEach(([lat, lng]) => {
-                clickedPortalsGeojson.data.features.push({
-                    type: 'Feature',
-                    geometry: {
-                        type: 'Point',
-                        coordinates: [lng, lat]
-                    }
-                });
-            });
-            map.getSource('clickedPortals').setData(clickedPortalsGeojson.data);
+            if (clickedPortalsGeojson.data.features.length == 0) {
+              const portals = await fetch(`${API_BASE_URL}/list?min_distance=.5&format=short`).then((res) => res.json());
+              portals.forEach(([lat, lng]) => {
+                  clickedPortalsGeojson.data.features.push({
+                      type: 'Feature',
+                      geometry: {
+                          type: 'Point',
+                          coordinates: [lng, lat]
+                      }
+                  });
+              });
+              map.getSource('clickedPortals').setData(clickedPortalsGeojson.data);
+            }
         }
         async function loadLastStop() {
             const coordsElem = document.getElementById('mapCenterCoords')
@@ -419,7 +423,6 @@
                 coordsElem.value = [lastStop.lat, lastStop.lng].join(",");
             }
             setMapCenter(quiet);
-            loadClickedPoints();
         }
         function setMapCenter(quiet) {
             const coordsString = document.getElementById('mapCenterCoords').value;
@@ -433,11 +436,14 @@
                 updateStatus("Invalid coordinates for map center.", true);
             }
         }
-        function handleMove(e) {
+        function handleMoveEnd(e) {
             let center = map.getCenter();
 
             const coordsElem = document.getElementById('coords');
             coordsElem.innerHTML = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
+            if (map.getZoom() > 6) {
+              loadClickedPoints();
+            }
         }
 
         function addClickedPoint(lng, lat) {
