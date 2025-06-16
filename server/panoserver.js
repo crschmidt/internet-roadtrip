@@ -190,7 +190,7 @@ app.get('/list', (req, res) => {
           res.status(400).json({ status: 'error', error: 'Invalid min_distance parameter. Must be a number.' });
           return;
       }
-      conditions.push("clickedLat > ?");
+      conditions.push("clickedLng > ?");
       params.push(minLng);
    }
     if (max_lat !== undefined) {
@@ -208,7 +208,7 @@ app.get('/list', (req, res) => {
           res.status(400).json({ status: 'error', error: 'Invalid max_distance parameter. Must be a number.' });
           return;
       }
-      conditions.push("clickedLat < ?");
+      conditions.push("clickedLng < ?");
       params.push(maxLng);
    }
 
@@ -225,7 +225,7 @@ app.get('/list', (req, res) => {
     if (conditions.length > 0) {
         query += " WHERE " + conditions.join(" AND ");
     }
-
+    console.log(query)
     db.all(query, params, (err, rows) => {
         if (err) {
             console.error("Database query error:", err.message);
