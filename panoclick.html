@@ -274,7 +274,9 @@
                 center: [-63.57966, 44.64798], // Initial center
                 zoom: 12
             });
-            map.addControl(new maplibregl.NavigationControl());
+            map.addControl(new maplibregl.NavigationControl({
+                visualizePitch: true
+            }));
             map.on('move', handleMove);
             map.on('click', handleMapClick);
             map.on('contextmenu', handleMapContext);
@@ -497,6 +499,7 @@
             return [Math.floor(x), Math.floor(y)]
         }
         async function handleMapContext(e) {
+            debugger;
             const { lng, lat } = e.lngLat;
             // This seems to be an ok heuristic to get the requested tile
             // to match what the user sees
