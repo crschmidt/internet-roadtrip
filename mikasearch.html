@@ -58,6 +58,9 @@
             padding: 5px;
             background-color: #eef;
             border-radius: 3px;}
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
     </style>
   </head>
   <body>
@@ -74,6 +77,23 @@
         <div id="status" class="status">Place a marker, then click start.</div>
     </div>
     <div id="map"></div>
+    <div id="resultsArea">
+        <h2>Results</h2>
+        <table id="resultsTable">
+            <thead>
+                <tr>
+                    <th>Pano ID</th>
+                    <th>Actual Latitude</th>
+                    <th>Actual Longitude</th>
+                    <th>Computed Distance (m)</th>
+                    <th>Query Lat</th>
+                    <th>Query Lng</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
   </body>
   <script>
       let marker = null;
@@ -84,6 +104,7 @@
           updateStatus("Connecting...");
           var latlng = marker.getLngLat();
           extent = null;
+          previousTile = null;
           socket = new WebSocket(`wss://irt.crschmidt.net:3001?lat=${latlng.lat}&lng=${latlng.lng}`);
           socket.addEventListener("message", websocketMessage);
           socket.addEventListener("close", () => { updateStatus(`Connection closed; ${dotCount} total dots`); });
@@ -132,6 +153,17 @@
         properties: {x: x, y:y},
       }
     }
+    function addPortal(data) {
+            const tableBody = document.getElementById('resultsTable').getElementsByTagName('tbody')[0];
+
+                    const row = tableBody.insertRow(0);
+                    row.insertCell().innerHTML = `<a href="/panoclick.html?lat=${data.entranceLat.toFixed(6)}&lng=${data.entranceLng.toFixed(6)}&pano=${data.id}">link</a>`;
+                    row.insertCell().innerHTML = `<a href="/pano.html?pano=${data.id}">${data.id}</a>`;
+                    row.insertCell().textContent = data.entranceLat.toFixed(6);
+                    row.insertCell().textContent = data.entranceLng.toFixed(6);
+                    row.insertCell().textContent = data.exitLat.toFixed(6);
+                    row.insertCell().textContent = data.exitLng.toFixed(6);
+    }
     function handleMapClick(e) {
             const { lng, lat } = e.lngLat;
             if (marker) { marker.remove() }
@@ -141,7 +173,20 @@
                 .addTo(map);
     }
         async function loadClickedPoints() {
-            if (map.getZoom() > 7) {
+            if (clickedPortalsGeojson.data.features.length == 0) {
+              const portals = await fetch(`${API_BASE_URL}/list?min_distance=1&format=short`).then((res) => res.json());
+              portals.forEach(([lat, lng]) => {
+                  clickedPortalsGeojson.data.features.push({
+                      type: 'Feature',
+                      geometry: {
+                          type: 'Point',
+                          coordinates: [lng, lat]
+                      }
+                  });
+              });
+              map.getSource('clickedPortals').setData(clickedPortalsGeojson.data);
+            }
+            if (map.getZoom() > 9) {
             clickedPointsGeojson.data.features = [];
 
             const bounds = map.getBounds();
@@ -156,19 +201,6 @@
                 });
             });
             map.getSource('clickedPoints').setData(clickedPointsGeojson.data);
-            }
-            if (clickedPortalsGeojson.data.features.length == 0) {
-              const portals = await fetch(`${API_BASE_URL}/list?min_distance=.5&format=short`).then((res) => res.json());
-              portals.forEach(([lat, lng]) => {
-                  clickedPortalsGeojson.data.features.push({
-                      type: 'Feature',
-                      geometry: {
-                          type: 'Point',
-                          coordinates: [lng, lat]
-                      }
-                  });
-              });
-              map.getSource('clickedPortals').setData(clickedPortalsGeojson.data);
             }
         }
     function websocketMessage(event) {
@@ -236,6 +268,7 @@
         markers.push(marker);
       }
       if (data.type === "newPortal") {
+        addPortal(data);
         new maplibregl.Marker({ color: "#0000ff" })
           .setLngLat([data.entranceLng, data.entranceLat])
           .addTo(map);
