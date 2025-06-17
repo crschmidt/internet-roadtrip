@@ -57,6 +57,7 @@ function deg2rad(deg) {
 
 // POST /add
 app.post('/add', (req, res) => {
+    const editDb = new sqlite3.Database(dbFile);
     const items = req.body;
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -73,15 +74,15 @@ app.post('/add', (req, res) => {
         }
     }
 
-    db.serialize(() => {
-        db.run("BEGIN TRANSACTION;", function(beginErr) {
+    editDb.serialize(() => {
+        editDb.run("BEGIN TRANSACTION;", function(beginErr) {
             if (beginErr) {
                 console.error("Transaction start error:", beginErr.message);
                 res.status(500).json({ status: 'error', error: `Transaction start error: ${beginErr.message}` });
                 return;
             }
 
-            const stmt = db.prepare("INSERT INTO items (panoId, clickedLat, clickedLng, actualLat, actualLng, distance, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            const stmt = editDb.prepare("INSERT INTO items (panoId, clickedLat, clickedLng, actualLat, actualLng, distance, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)");
             let errorOccurred = false;
             let lastErrorMessage = '';
 
@@ -112,7 +113,7 @@ app.post('/add', (req, res) => {
                 }
 
                 if (errorOccurred) {
-                    db.run("ROLLBACK;", (rollbackErr) => {
+                    editDb.run("ROLLBACK;", (rollbackErr) => {
                         if (rollbackErr) {
                             console.error("Rollback error:", rollbackErr.message);
                             // Send a more comprehensive error message if rollback also fails
@@ -123,12 +124,12 @@ app.post('/add', (req, res) => {
                         return;
                     });
                 } else {
-                    db.run("COMMIT;", (commitErr) => {
+                    editDb.run("COMMIT;", (commitErr) => {
                         if (commitErr) {
                             console.error("Transaction commit error:", commitErr.message);
                             // If commit fails, the transaction is typically rolled back automatically by SQLite,
                             // but an explicit ROLLBACK can be attempted for safety, though it might also error.
-                            db.run("ROLLBACK;", (rbErrOnCommitFail) => {
+                            editDb.run("ROLLBACK;", (rbErrOnCommitFail) => {
                                 if (rbErrOnCommitFail) console.error("Rollback attempt after commit failure also failed:", rbErrOnCommitFail.message);
                             });
                             res.status(500).json({ status: 'error', error: `Transaction commit error: ${commitErr.message}` });
