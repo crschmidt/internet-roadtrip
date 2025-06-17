@@ -461,7 +461,7 @@
 
             const coordsElem = document.getElementById('coords');
             coordsElem.innerHTML = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
-            if (map.getZoom() > 6) {
+            if (map.getZoom() > 12) {
               loadClickedPoints();
             }
         }
