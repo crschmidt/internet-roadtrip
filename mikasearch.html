@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Portal Finder</title>
+    <script src="https://unpkg.com/maplibre-gl@^5.6.0/dist/maplibre-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
+    <link
+      href="https://unpkg.com/maplibre-gl@^5.6.0/dist/maplibre-gl.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+      #map {
+        width: 100%;
+        height: 80%;
+      }
+       .controls-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .control-group label {
+            margin-bottom: 3px;
+            font-size: 0.9em;
+        }
+        .control-group input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .control-group button {
+            padding: 8px 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .control-group button:hover {
+            background-color: #0056b3;
+        }
+        .status {
+            padding: 5px;
+            background-color: #eef;
+            border-radius: 3px;}
+    </style>
+  </head>
+  <body>
+    <div class="controls-container">
+
+        <div class="control-group">
+            <label>&nbsp;</label> <!-- Spacer for alignment -->
+            <button id="executeButton" onclick="start()">Start</button>
+        </div>
+        <div class="control-group">
+            <label>&nbsp;</label> <!-- Spacer for alignment -->
+            <button id="executeButton" onclick="stop()">Stop</button>
+        </div>
+        <div id="status" class="status">Place a marker, then click start.</div>
+    </div>
+    <div id="map"></div>
+  </body>
+  <script>
+      let marker = null;
+      let dotCount = 0;
+        const API_BASE_URL = new URLSearchParams(location.search).get('apiBaseUrl') || '/serve';
+      function start() {
+        if (marker) {
+          updateStatus("Connecting...");
+          var latlng = marker.getLngLat();
+          extent = null;
+          socket = new WebSocket(`wss://irt.crschmidt.net:3001?lat=${latlng.lat}&lng=${latlng.lng}`);
+          socket.addEventListener("message", websocketMessage);
+          socket.addEventListener("close", () => { updateStatus(`Connection closed; ${dotCount} total dots`); });
+        } else updateStatus("Add a marker first", true);
+      }
+      function updateStatus(message, isError = false) {
+        const statusDiv = document.getElementById('status');
+        statusDiv.textContent = message;
+        statusDiv.className = isError ? 'status error' : 'status';
+      }
+    function stop() {
+      socket.close();
+    }
+        function handleMoveEnd(e) {
+              loadClickedPoints();
+        }
+    function tileToCoords(x, y, zoom) {
+      const scale = Math.pow(2, zoom);
+      const longitude = (x / scale) * 360.0 - 180.0;
+      const latitudeRad = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / scale)));
+      const latitude = (latitudeRad * 180.0) / Math.PI;
+      return [latitude, longitude];
+    }
+
+    function tileToBoundsLite(x, y, zoom) {
+      const [lat1, lng1] = tileToCoords(x, y, zoom);
+      const [lat2, lng2] = tileToCoords(x + 1, y + 1, zoom);
+      return [lng1, lat2, lng2, lat1];
+    }	    
+    function tileToBounds(x, y, zoom) {
+      const [lat1, lng1] = tileToCoords(x, y, zoom);
+      const [lat2, lng2] = tileToCoords(x + 1, y + 1, zoom);
+      return {
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [lng1, lat1],
+              [lng2, lat1],
+              [lng2, lat2],
+              [lng1, lat2],
+            ],
+          ],
+        },
+        properties: {x: x, y:y},
+      }
+    }
+    function handleMapClick(e) {
+            const { lng, lat } = e.lngLat;
+            if (marker) { marker.remove() }
+            marker = new maplibregl.Marker({ color: '#FFA500' /* Orange for click */ })
+                .setLngLat([lng, lat])
+                .setPopup(new maplibregl.Popup().setText(`Clicked: ${lat.toFixed(5)}, ${lng.toFixed(5)}`))
+                .addTo(map);
+    }
+        async function loadClickedPoints() {
+            if (map.getZoom() > 7) {
+            clickedPointsGeojson.data.features = [];
+
+            const bounds = map.getBounds();
+            const points = await fetch(`${API_BASE_URL}/list?format=short&min_lat=${bounds.getSouth()}&min_lng=${bounds.getWest()}&max_lat=${bounds.getNorth()}&max_lng=${bounds.getEast()}`).then((res) => res.json());
+            points.forEach(([lat, lng]) => {
+                clickedPointsGeojson.data.features.push({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [lng, lat]
+                    }
+                });
+            });
+            map.getSource('clickedPoints').setData(clickedPointsGeojson.data);
+            }
+            if (clickedPortalsGeojson.data.features.length == 0) {
+              const portals = await fetch(`${API_BASE_URL}/list?min_distance=.5&format=short`).then((res) => res.json());
+              portals.forEach(([lat, lng]) => {
+                  clickedPortalsGeojson.data.features.push({
+                      type: 'Feature',
+                      geometry: {
+                          type: 'Point',
+                          coordinates: [lng, lat]
+                      }
+                  });
+              });
+              map.getSource('clickedPortals').setData(clickedPortalsGeojson.data);
+            }
+        }
+    function websocketMessage(event) {
+      const data = JSON.parse(event.data);
+
+      if (data.type === "startLocation") {
+        const bounds = tileToBounds(data.x, data.y, 17);
+        map.jumpTo({
+          center: bounds.geometry.coordinates[0][0],
+          zoom: 15,
+        });
+      }
+      if (data.type === "newTile") {
+        dotCount += data.prevResults;
+        updateStatus(`Processing tile ${data.completed}; Added ${data.prevResults} dots (${dotCount} total)`);
+        for (const marker of markers) {
+          marker.remove();
+        }
+        markers = [];
+
+        if (previousTile !== null) {
+          fill_data_loading.features.pop();
+	        let e2 = tileToBoundsLite(previousTile.properties.x, previousTile.properties.y, 17);
+	        
+          if (e2[0] < extent[0]) 
+                  extent[0] = e2[0];
+          if (e2[1] < extent[1]) 
+                  extent[1] = e2[1];
+          if (e2[2] > extent[2]) 
+                  extent[2] = e2[2];
+          if (e2[3] > extent[3]) 
+                  extent[3] = e2[3];
+          let newF = {
+            type: "Feature",
+            geometry: {
+              type: "Polygon",
+              coordinates: [
+                [
+                  [extent[0], extent[1]],
+                  [extent[2], extent[1]],
+                  [extent[2], extent[3]],
+                  [extent[0], extent[3]],
+                  [extent[0], extent[1]],
+                ],
+              ],
+            },
+            properties: {},
+          };
+
+		      map.getSource('tile-done-source').setData({'type':'FeatureCollection', 'features': [newF]});
+          map.getSource('tile-loading-source').setData(fill_data_loading);
+        } else {
+        	extent = tileToBoundsLite(data.x, data.y, 17);
+          console.log("initial extent");
+        }
+	    
+        previousTile = tileToBounds(data.x, data.y, 17);
+        fill_data_loading.features.push(previousTile);
+        map.getSource('tile-loading-source').setData(fill_data_loading);
+      }
+      if (data.type === "newCoordinate") {
+        const marker = new maplibregl.Marker({ color: "#ff7f00" })
+          .setLngLat([data.lng, data.lat])
+          .addTo(map);
+        markers.push(marker);
+      }
+      if (data.type === "newPortal") {
+        new maplibregl.Marker({ color: "#0000ff" })
+          .setLngLat([data.entranceLng, data.entranceLat])
+          .addTo(map);
+
+        new maplibregl.Marker({ color: "#ff0000" })
+          .setLngLat([data.exitLng, data.exitLat])
+          .addTo(map);
+
+        map.addSource(data.id, {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [data.entranceLng, data.entranceLat],
+                [data.exitLng, data.exitLat],
+              ],
+            },
+          },
+        });
+        map.addLayer({
+          id: data.id,
+          type: "line",
+          source: data.id,
+          layout: {
+            "line-join": "round",
+            "line-cap": "round",
+          },
+          paint: {
+            "line-color": "#888",
+            "line-width": 2,
+          },
+        });
+      }
+    }
+
+    fill_data_loading = {
+      'type': 'FeatureCollection',
+      'features': []
+    };
+    fill_data_done = {
+      'type': 'FeatureCollection',
+      'features': []
+    };
+    let socket = null;
+    let map = null;
+        let markers = [];
+        let previousTile = null;
+	      let extent = null;
+        let clickedPointsGeojson = {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features: []
+            }
+        };
+        let clickedPortalsGeojson = {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features: []
+            }
+        };
+    window.onload = async () => {
+      const libertyStyle = await fetch(
+        "https://tiles.openfreemap.org/styles/liberty"
+      ).then((res) => res.json());
+      map = new maplibregl.Map({
+        container: "map",
+        style: {
+          ...libertyStyle,
+          sources: {
+            ...libertyStyle.sources,
+            photospheres: {
+              type: "raster",
+              tiles: [
+                "https://mts.googleapis.com/vt?pb=%211m4%211m3%211i{z}%212i{x}%213i{y}%212m8%211e2%212ssvv%214m2%211scc%212s*211m3*211e3*212b1*213e2*211m3*211e10*212b1*213e2%214m2%211ssvl%212s*212b1%213m10%2112m4%211e68%212m2%211sset%212sRoadmap%2112m4%211e26%212m2%211sstyles%212ss.e%7Cp.c%3A%23ff0000%2Cs.e%3Ag.s%7Cp.v%3Aoff%2Cs.e%3Ag.f%7Cp.v%3Aoff",
+              ],
+              tileSize: 256,
+            },
+            'tile-loading-source': {
+              type: 'geojson',
+              data: fill_data_loading
+            },
+            'tile-done-source': {
+              type: 'geojson',
+              data: fill_data_done
+            },
+                        'clickedPoints': clickedPointsGeojson,
+                        'clickedPortals': clickedPortalsGeojson
+          },
+          layers: [
+            ...libertyStyle.layers,
+            {
+              id: "photospheres-tiles",
+              type: "raster",
+              source: "photospheres",
+              minzoom: 0,
+              maxzoom: 22,
+            },
+            {
+              'id': 'tile-fill-loading',
+              'type': 'fill',
+              'source': 'tile-loading-source',
+              'paint': {
+                "fill-color": "rgba(255, 127, 0, 0.3)",
+              }
+            },
+            {
+              'id': 'tile-fill-done',
+              'type': 'fill',
+              'source': 'tile-done-source',
+              'paint': {
+                "fill-color": "rgba(0, 255, 0, 0.3)",
+              }
+            },
+                        {
+                            id: 'points',
+                            type: 'circle',
+                            source: 'clickedPoints',
+                            paint: {
+                                'circle-radius': 4,
+                                'circle-color': '#00ff00' // Green color
+                            }
+                        },
+                        {
+                            id: 'portals',
+                            type: 'circle',
+                            source: 'clickedPortals',
+                            paint: {
+                                'circle-radius': 6,
+                                'circle-color': '#0000ff' // Blue color
+                            }
+                        }
+          ],
+        },
+        center: [0, 0],
+        zoom: 1,
+      });
+      map.on('click', handleMapClick);
+            map.on('moveend', handleMoveEnd);
+    };
+
+  </script>
+</html>
