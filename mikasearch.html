@@ -82,12 +82,13 @@
         <table id="resultsTable">
             <thead>
                 <tr>
+                    <th>Link</th>
                     <th>Pano ID</th>
-                    <th>Actual Latitude</th>
-                    <th>Actual Longitude</th>
+                    <th>Entrance Lat</th>
+                    <th>Entrance Longitude</th>
+                    <th>Exit Lat</th>
+                    <th>Exit Lng</th>
                     <th>Computed Distance (m)</th>
-                    <th>Query Lat</th>
-                    <th>Query Lng</th>
                 </tr>
             </thead>
             <tbody>
@@ -380,7 +381,8 @@
               data: fill_data_done
             },
                         'clickedPoints': clickedPointsGeojson,
-                        'clickedPortals': clickedPortalsGeojson
+                        'clickedPortals': clickedPortalsGeojson,
+           'coverage': {'type':'geojson', 'data':'/coverage_map.geojson'}
           },
           layers: [
             ...libertyStyle.layers,
@@ -424,7 +426,17 @@
                                 'circle-radius': 6,
                                 'circle-color': '#0000ff' // Blue color
                             }
-                        }
+                        },
+            {
+              'id': 'coverage-layer',
+              'type': 'fill',
+              'source': 'coverage',
+              'paint': {
+                "fill-color": "rgba(0, 255, 255, 0.3)",
+              },
+              minzoom: 0,
+              maxzoom: 22,
+            },
           ],
         },
         center: [0, 0],
