@@ -281,6 +281,7 @@
                 center: [-63.57966, 44.64798], // Initial center
                 zoom: 12
             });
+            map.dragRotate.disable();
             map.addControl(new maplibregl.NavigationControl({
                 visualizePitch: true
             }));
