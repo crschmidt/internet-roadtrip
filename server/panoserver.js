@@ -24,6 +24,7 @@ const db = new sqlite3.Database(dbFile, (err) => {
             actualLat REAL NOT NULL,
             actualLng REAL NOT NULL,
             distance REAL NOT NULL,
+            source TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )`, (err) => {
             if (err) {
@@ -75,6 +76,7 @@ app.post('/add', (req, res) => {
     }
 
     editDb.serialize(() => {
+        editDb.run("PRAGMA busy_timeout=60000");
         editDb.run("BEGIN TRANSACTION;", function(beginErr) {
             if (beginErr) {
                 console.error("Transaction start error:", beginErr.message);
@@ -82,19 +84,21 @@ app.post('/add', (req, res) => {
                 return;
             }
 
-            const stmt = editDb.prepare("INSERT INTO items (panoId, clickedLat, clickedLng, actualLat, actualLng, distance, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            const stmt = editDb.prepare("INSERT INTO items (panoId, clickedLat, clickedLng, actualLat, actualLng, distance, timestamp, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             let errorOccurred = false;
             let lastErrorMessage = '';
 
             items.forEach(item => {
+                let source = 'unknown';
                 if (errorOccurred) return; // Stop processing if an error has already occurred in a previous iteration
 
                 const { panoId, clickedLat, clickedLng, actualLat, actualLng } = item;
+                if (item.source) { source = item.source; }
                 const distance = getDistance(clickedLat, clickedLng, actualLat, actualLng);
                 const timestamp = new Date().toISOString();
 
                 // The callback for stmt.run is important for error handling within the loop
-                stmt.run(panoId, clickedLat, clickedLng, actualLat, actualLng, distance, timestamp, function(runErr) {
+                stmt.run(panoId, clickedLat, clickedLng, actualLat, actualLng, distance, timestamp, source, function(runErr) {
                     if (runErr) {
                         errorOccurred = true;
                         lastErrorMessage = `Error inserting item (panoId: ${panoId}): ${runErr.message}`;
@@ -226,7 +230,6 @@ app.get('/list', (req, res) => {
     if (conditions.length > 0) {
         query += " WHERE " + conditions.join(" AND ");
     }
-    console.log(query)
     db.all(query, params, (err, rows) => {
         if (err) {
             console.error("Database query error:", err.message);
