@@ -74,6 +74,10 @@
             <label>&nbsp;</label> <!-- Spacer for alignment -->
             <button id="executeButton" onclick="stop()">Stop</button>
         </div>
+        <div class="control-group">
+            <label>Show orange markers? (not needed, just pretty)</label> <!-- Spacer for alignment -->
+            <input id="noorange" type="checkbox" checked="checked" value="noorange" />
+        </div>
         <div id="status" class="status">Place a marker, then click start.</div>
     </div>
     <div id="map"></div>
@@ -164,7 +168,28 @@
                     row.insertCell().textContent = data.entranceLng.toFixed(6);
                     row.insertCell().textContent = data.exitLat.toFixed(6);
                     row.insertCell().textContent = data.exitLng.toFixed(6);
+                    var distance = haversineDistance(data.entranceLat, data.entranceLng, data.exitLat, data.exitLng);
+            const distanceNumberFormat = new Intl.NumberFormat(navigator.language, {
+                style: 'decimal',
+                notation: 'standard',
+                maximumFractionDigits: 2,
+                minimumFractionDigits: 2
+            });
+                    row.insertCell().textContent = distanceNumberFormat.format(distance);
     }
+        // Haversine distance (reused)
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Earth radius in meters
+            const phi1 = lat1 * Math.PI / 180;
+            const phi2 = lat2 * Math.PI / 180;
+            const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+            const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+                Math.cos(phi1) * Math.cos(phi2) *
+                Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
     function handleMapClick(e) {
             const { lng, lat } = e.lngLat;
             if (marker) { marker.remove() }
@@ -174,20 +199,7 @@
                 .addTo(map);
     }
         async function loadClickedPoints() {
-            if (clickedPortalsGeojson.data.features.length == 0) {
-              const portals = await fetch(`${API_BASE_URL}/list?min_distance=1&format=short`).then((res) => res.json());
-              portals.forEach(([lat, lng]) => {
-                  clickedPortalsGeojson.data.features.push({
-                      type: 'Feature',
-                      geometry: {
-                          type: 'Point',
-                          coordinates: [lng, lat]
-                      }
-                  });
-              });
-              map.getSource('clickedPortals').setData(clickedPortalsGeojson.data);
-            }
-            if (map.getZoom() > 9) {
+            if (map.getZoom() > 11) {
             clickedPointsGeojson.data.features = [];
 
             const bounds = map.getBounds();
@@ -235,18 +247,20 @@
         map.getSource('tile-loading-source').setData(fill_data_loading);
       }
       if (data.type === "newCoordinate") {
+        if (document.getElementById("noorange").checked) {
         const marker = new maplibregl.Marker({ color: "#ff7f00" })
           .setLngLat([data.lng, data.lat])
           .addTo(map);
         markers.push(marker);
+}
       }
       if (data.type === "newPortal") {
         addPortal(data);
-        new maplibregl.Marker({ color: "#0000ff" })
+        new maplibregl.Marker({ color: "#ff0000" })
           .setLngLat([data.entranceLng, data.entranceLat])
           .addTo(map);
 
-        new maplibregl.Marker({ color: "#ff0000" })
+        new maplibregl.Marker({ color: "#0000ff" })
           .setLngLat([data.exitLng, data.exitLat])
           .addTo(map);
 
@@ -381,7 +395,7 @@
               data: fill_data_done
             },
                         'clickedPoints': clickedPointsGeojson,
-                        'clickedPortals': clickedPortalsGeojson,
+                        'clickedPortals': {'type': 'geojson', 'data': '/bluedots.geojson'},
            'coverage': {'type':'geojson', 'data':'/coverage_map.geojson'}
           },
           layers: [
