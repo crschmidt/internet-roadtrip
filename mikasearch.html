@@ -11,16 +11,35 @@
       rel="stylesheet"
     />
     <style>
-      body {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        margin: 0;
-      }
-      #map {
-        width: 100%;
-        height: 80%;
-      }
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+        body {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+            max-height: 100%;
+
+            &.locked {
+                outline: 5px solid grey;
+            }
+        }
+        #map-resize {
+            text-align: center;
+            user-select: none;
+            cursor: ns-resize;
+        }
        .controls-container {
             display: flex;
             flex-wrap: wrap;
@@ -61,6 +80,13 @@
         table { border-collapse: collapse; width: 100%; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
+        #resultsContainer {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 5px;
+            flex-grow: 1;
+        }
     </style>
   </head>
   <body>
@@ -81,7 +107,8 @@
         <div id="status" class="status">Place a marker, then click start.</div>
     </div>
     <div id="map"></div>
-    <div id="resultsArea">
+    <div id="map-resize">•••</div>
+    <div id="resultsContainer">
         <h2>Results</h2>
         <table id="resultsTable">
             <thead>
@@ -102,6 +129,7 @@
   </body>
   <script>
       let marker = null;
+        const mapContainerEl = document.querySelector('#map');
       let dotCount = 0;
         const API_BASE_URL = new URLSearchParams(location.search).get('apiBaseUrl') || '/serve';
       function start() {
@@ -459,6 +487,66 @@
       map.on('click', handleMapClick);
             map.on('moveend', handleMoveEnd);
     };
+        // Handle map resize
+        {
+            const mapResizeEl = document.querySelector('#map-resize');
+
+            let resizingState = null;
+            mapResizeEl.addEventListener('mousedown', (event) => {
+                resizingState = {
+                    startScreenY: event.screenY,
+                    startMapHeight: mapContainerEl.getBoundingClientRect().height
+                };
+            });
+            mapResizeEl.addEventListener('touchstart', (event) => {
+                const touch = event.changedTouches[0];
+                resizingState = {
+                    touchIdentifier: touch.identifier,
+                    startScreenY: touch.screenY,
+                    startMapHeight: mapContainerEl.getBoundingClientRect().height
+                };
+            });
+
+            function handleMove(newScreenY) {
+                if (resizingState == null) return;
+
+                const newHeight = resizingState.startMapHeight + (newScreenY - resizingState.startScreenY);
+                mapContainerEl.style.height = `${newHeight}px`;
+            }
+            window.addEventListener('mousemove', (event) => {
+                if (resizingState == null) return;
+
+                handleMove(event.screenY);
+            })
+            window.addEventListener('touchmove', (event) => {
+                if (resizingState == null || resizingState.touchIdentifier == null) return;
+
+                const touch = Array.from(event.changedTouches).find(({ identifier }) => resizingState.touchIdentifier);
+                // Touch that moved wasn't the one used for resizing
+                if (!touch) return;
+
+                handleMove(touch.screenY);
+            });
+
+            function handleEnd() {
+                if (resizingState == null) return;
+
+                resizingState = null;
+
+                map.resize();
+            }
+            window.addEventListener('mouseup', handleEnd);
+            window.addEventListener('touchend', (event) => {
+                if (
+                    resizingState == null ||
+                    resizingState.touchIdentifier == null ||
+                    // Lifted up touch wasn't the one used for resizing
+                    !Array.from(event.changedTouches).some(({ identifier }) => identifier === resizingState.touchIdentifier)
+                ) return;
+
+                handleEnd();
+            });
+        }
 
   </script>
 </html>
