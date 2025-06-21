@@ -407,6 +407,20 @@
           ...libertyStyle,
           sources: {
             ...libertyStyle.sources,
+                        'sv': {
+                            type: 'raster',
+                            tiles: [
+                                'https://mts.googleapis.com/vt?pb=%211m4%211m3%211i{z}%212i{x}%213i{y}%212m8%211e2%212ssvv%214m2%211scc%212s*211m3*211e2*212b1*213e2*212b1*214b1%214m2%211ssvl%212s*212b1%213m11%212sen%213sUS%2112m4%211e68%212m2%211sset%212sRoadmap%2112m3%211e37%212m1%211ssmartmaps%215m1%215f2'
+                            ],
+                            tileSize: 256
+                        },
+                        'ugc_sv': {
+                            type: 'raster',
+                            tiles: [
+                                'https://mts.googleapis.com/vt?pb=%211m4%211m3%211i{z}%212i{x}%213i{y}%212m8%211e2%212ssvv%214m2%211scc%212s%2A211m3%2A211e3%2A212b1%2A213e2%2A211m3%2A211e10%2A212b1%2A213e2%2A212b1%2A214b1%214m2%211ssvl%212s%2A212b1%213m16%212sen%213sUS%2112m4%211e68%212m2%211sset%212sRoadmap%2112m3%211e37%212m1%211ssmartmaps%2112m4%211e26%212m2%211sstyles%212ss.e%7Cp.c%3A%23ff0000%2Cs.e%3Ag.f%7Cp.c%3A%23bd5f1b%2Cs.e%3Ag.s%7Cp.c%3A%23f7ca9e%2C%215m1%215f2%0A'
+                            ],
+                            tileSize: 256
+                        },
             photospheres: {
               type: "raster",
               tiles: [
@@ -428,6 +442,20 @@
           },
           layers: [
             ...libertyStyle.layers,
+            {
+                id: 'sv-tiles',
+                type: 'raster',
+                source: 'sv',
+                minzoom: 8,
+                maxzoom: 22
+            },
+            {
+                id: 'svugc-tiles',
+                type: 'raster',
+                source: 'ugc_sv',
+                minzoom: 8,
+                maxzoom: 22
+            },
             {
               id: "photospheres-tiles",
               type: "raster",
@@ -486,6 +514,9 @@
       });
       map.on('click', handleMapClick);
             map.on('moveend', handleMoveEnd);
+            map.on("load", function() {
+                addMapControls();
+            });
     };
         // Handle map resize
         {
@@ -546,6 +577,151 @@
 
                 handleEnd();
             });
+        }
+            function addMapControls() {
+                let label_to_layer_ids = {
+                    'Official Streetview': ["sv-tiles"],
+                    'Unofficial Streetview': ["svugc-tiles"],
+                };
+                let layer_ctrls = Object.fromEntries(
+                    Object.entries(label_to_layer_ids).map(([label, layer_ids]) => {
+                        const ctrl = {
+                            label,
+                            get initialValue() {
+                                // Check whether every layer is currently visible
+                                let is_visible = true;
+                                for (const layer_name of layer_ids) {
+                                    is_visible =
+                                        is_visible &&
+                                        map.getLayer(layer_name) != null &&
+                                        map.getLayoutProperty(layer_name, "visibility") !== "none";
+                                }
+                                return is_visible;
+                            },
+                            onChange(checked) {
+                                let visibility = checked ? "visible" : "none";
+                                for (const layer of layer_ids) {
+                                    map.setLayoutProperty(layer, "visibility", visibility);
+                                }
+                            }
+                        };
+
+                        return [label, ctrl];
+                    })
+                );
+
+                let hold_ctrl_to_move_ctrl;
+                {
+                    function lock() {
+                        map.getContainer().classList.add('locked');
+                        map.dragPan.disable();
+                    }
+                    function unlock() {
+                        map.getContainer().classList.remove('locked');
+                        map.dragPan.enable();
+                    }
+
+
+                    function handleKeydown(event) {
+                        if (event.altKey) {
+                            event.preventDefault();
+                            unlock();
+                        }
+                    }
+                    function handleKeyup(event) {
+                        if (!event.altKey) {
+                            event.preventDefault();
+                            lock();
+                        }
+                    }
+
+                    hold_ctrl_to_move_ctrl = {
+                        label: `Require holding Alt to move`,
+                        initialValue: false,
+                        onChange(checked) {
+                            if (checked) {
+                                lock();
+
+                                window.addEventListener('keydown', handleKeydown);
+                                window.addEventListener('keyup', handleKeyup);
+                            } else {
+                                unlock();
+
+                                window.removeEventListener('keydown', handleKeydown);
+                                window.removeEventListener('keyup', handleKeyup);
+                            }
+                        }
+                    };
+                }
+
+                let map_ctrls = {
+                    ... layer_ctrls,
+                    hold_ctrl_to_move_ctrl
+                };
+
+                // Create control
+                let lc = new MapControls(map_ctrls);
+                map.addControl(lc);
+            }
+        class MapControls {
+            constructor(ctrls) {
+                // This div will hold all the checkboxes and their labels
+                this._container = document.createElement("div");
+                this._container.classList.add(
+                    // Built-in classes for consistency
+                    "maplibregl-ctrl",
+                    "maplibregl-ctrl-group",
+                    // Custom class, see later
+                    "custom-map-controls",
+                );
+                // Might be cleaner to deep copy these instead
+                this._ctrls = ctrls;
+                // Direct access to the input elements so I can decide which should be
+                // checked when adding the control to the map.
+                this._inputs = {};
+                // Create the checkboxes and add them to the container
+                for (const [key, ctrl] of Object.entries(this._ctrls)) {
+                    let labeled_checkbox = this._createLabeledCheckbox(key, ctrl);
+                    this._container.appendChild(labeled_checkbox);
+                }
+            }
+
+            // Creates one checkbox and its label
+            _createLabeledCheckbox(key, ctrl) {
+                let label = document.createElement("label");
+                label.classList.add("toggle-control");
+                let text = document.createTextNode(ctrl.label);
+                let input = document.createElement("input");
+                this._inputs[key] = input;
+                input.type = "checkbox";
+                input.id = key;
+                // `=>` function syntax keeps `this` to the MapControl object
+                // When changed, toggle all the layers associated with the checkbox via
+                // `this._ctrls`.
+                input.addEventListener("change", () => ctrl.onChange(input.checked));
+                label.appendChild(input);
+                label.appendChild(text);
+                return label;
+            }
+
+            onAdd(map) {
+                this._map = map;
+                for (const [key, input] of Object.entries(this._inputs)) {
+                    input.checked = this._ctrls[key].initialValue;
+                }
+                return this._container;
+            }
+
+            onRemove(map) {
+                // Not sure why we have to do this ourselves since we are not the ones
+                // adding us to the map.
+                // Copied from their example so keeping it in.
+                this._container.parentNode.removeChild(this._container);
+                // This might be to help garbage collection? Also from their example.
+                // Or perhaps to ensure calls to this object do not change the map still
+                // after removal.
+                this._map = undefined;
+            }
         }
 
   </script>
